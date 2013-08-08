@@ -1,7 +1,8 @@
 import java.io._
+import net.sf.samtools.util._
 
-val input = new BufferedReader(new FileReader("GATK-LIC-Het4-Hom4-DP1k-3k-FS-20.vcf"))
-val out = new BufferedWriter(new FileWriter("Genos4m"))
+val input = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("duos-phased-beagle4.vcf.gz"))))
+val out = new BufferedWriter(new FileWriter("Genos4tom.txt"))
 
 var line = input.readLine
 while (line(1) == '#'){
@@ -43,3 +44,4 @@ out.write("\n")
 }
 println
 out.close
+
