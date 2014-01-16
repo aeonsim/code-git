@@ -1,7 +1,7 @@
 import java.io._
 import net.sf.samtools.util._
 
-val input = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("duos-phased-beagle4.vcf.gz"))))
+val input = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("50k.plus.HDsub.Seq.vcf.gz"))))
 val out = new BufferedWriter(new FileWriter("Genos4tom.txt"))
 
 var line = input.readLine
@@ -27,7 +27,7 @@ val gtPos = cline(8).split(":").indexOf("GT")
 while (input.ready){
 for (cAn <- 9 to (cline.size - 1)){
 val gt = cline(cAn).split(":")(gtPos)
-if ((gt.size == 3) && (gt(2) != '2')){
+if ((gt.size == 3) && (gt(2) != '2') & (gt(2) != '.')){
 animals(cAn - 9) =  (gt(0).toString.toInt + 1) :: (gt(2).toString.toInt + 1) :: animals(cAn - 9)
 } else {
 animals(cAn - 9) = 0 :: 0 :: animals(cAn - 9)
