@@ -348,8 +348,8 @@ def main (args: Array[String]): Unit = {
 	}
 	
 
-	if ((! settings.contains("VCF")) && (! settings.contains("PED")) && (! settings.contains("TRIOS")) && (! settings.contains("TYPE")) && (! settings.contains("OUT"))) {
-		println("advFilter VCF=input.vcf.gz PED=input.ped TRIOS=input_probands.txt OUT=denovo-stats.txt type=gatk,plat,fb { phaseVCF=SNPChip.vcf.gz minDP=0 minALT=0 RECUR=F/T minKIDS=1 PLGL=0 QUAL=0 minRAFQ=0.2 }")
+	if ((! settings.contains("VCF")) && (! settings.contains("PED")) && (! settings.contains("TRIOS")) && (! settings.contains("REF")) && (! settings.contains("TYPE")) && (! settings.contains("OUT"))) {
+		println("advFilter VCF=input.vcf.gz PED=input.ped TRIOS=input_probands.txt OUT=denovo-stats.txt type=gatk,plat,fb ref=genome.fasta { phaseVCF=SNPChip.vcf.gz minDP=0 minALT=0 RECUR=F/T minKIDS=1 PLGL=0 QUAL=0 minRAFQ=0.2 }")
 		println("Trios = txtfile per line: AnimalID\tavgDepth")
 		println("{} Optional arguments, Values shown are default")
 		System.exit(1)
@@ -506,7 +506,7 @@ println("Built Pedigrees\n")
 var phaseTracking = new HashMap[String, phaseTracker]
 var readDepths = new HashMap[String,Array[Int]]
 var phaseBlock = new HashMap[String,List[Tuple4[String,Int,Int,String]]]
-var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
+//var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 
 	val phaseInfo = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream(settings("VCF")))))
 	System.err.println("Have VCF, beginning Pre-phasing")
@@ -517,11 +517,14 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 		phaseBlock += phaseLine(col) -> Nil
 	}
 	
+	var rawOutput = new HashMap[String,BufferedWriter]
+	
 	for (fam <- trios){
 	/* Record Sites that are decent in Trio */
 		readDepths += s"Trio_${fam._1}" -> new Array[Int](4)
 		for (kid <- fam._2._3){
-			tmpPhase += kid -> (("",0,"") :: Nil)
+			//tmpPhase += kid -> (("",0,"") :: Nil)
+			rawOutput += kid -> new BufferedWriter(new FileWriter(kid + "-rawPhase.txt"))
 		} 
 	}
 	
@@ -535,9 +538,6 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 			PL = if (format.contains("PL")) format.indexOf("PL") else format.indexOf("GL")
 			PLexist = true
 		}
-	
-	/* Change code to output raw phase to disk rather than memory then reread files to build blocks */
-		
 		
 		for (fam <- trios.par){
 			/* Family = (ancestors, parents, children, tmpdesc, curPro(1).toInt, population, extFam) */
@@ -587,7 +587,8 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 					
 					if (inherited != "U") {
 						val parID = if (inherited == "S") family._2(0) else family._2(1)
-						tmpPhase(kid) =  (phaseLine(0),phaseLine(1).toInt,parID) :: tmpPhase(kid)
+						rawOutput(kid).write(s"${phaseLine(0)}\t${phaseLine(1)}\t${parID}\n")
+						//tmpPhase(kid) =  (phaseLine(0),phaseLine(1).toInt,parID) :: tmpPhase(kid)
 					}
 				}
 		}
@@ -595,7 +596,8 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 	
 	for (fam <- trios.par){
 		for (kid <- fam._2._3){
-			tmpPhase(kid) = tmpPhase(kid).reverse.tail
+			//tmpPhase(kid) = tmpPhase(kid).reverse.tail
+			rawOutput.foreach(child => child._2.close)
 		} 
 	}
 	
@@ -617,9 +619,21 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 		out.close
 	}
 	
-		for (child <- tmpPhase.par){
+		//for (child <- tmpPhase.par){
+		for(child <- rawOutput){
+			val in = new BufferedReader(new FileReader(child._1 + "-rawPhase.txt"))
 			val out = new BufferedWriter(new FileWriter(child._1 + "-origin.bed"))	
-			val childOrigin = child._2.toArray
+			
+			var phased : List[Tuple3[String,Int,String]] = Nil 
+			
+			while (in.ready){
+				/* Read file into Array of tuples */
+				val line = in.readLine.split("\t")
+				phased = (line(0),line(1).toInt,line(3)) :: phased
+			}
+			in.close
+						
+			val childOrigin = phased.reverse.toArray
 			
 			var count = 0			
 			var chrom = childOrigin(count)._1
@@ -652,7 +666,28 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 
 readDepths = new HashMap[String,Array[Int]]
 phaseBlock = new HashMap[String,List[Tuple4[String,Int,Int,String]]]
-tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
+//tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
+
+/* Build Reference Array, Note all positions are exact S added as a Guard for 0 */
+
+val ref = new BufferedReader(new FileReader(settings("REF")))
+var refTable = new HashMap[String,Array[Char]]
+var refLastChr = ""
+var refSeq : List[Char] = 'S' :: Nil
+
+while (ref.ready){
+	val line = ref.readLine
+	if (line(0) == '>'){
+		refTable += refLastChr -> refSeq.reverse.toArray
+		refSeq = 'S' :: Nil
+		refLastChr = if (line.indexOf(' ') == -1) line.substring(1,line.size -1) else line.split(" ").apply(0).substring(1,line.split(" ").apply(0).size)
+	} else {
+		refSeq = line.toList.reverse ::: refSeq
+	}
+}
+
+refLastChr = ""
+refSeq = Nil
 
 
 /*
@@ -660,7 +695,7 @@ tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 *	if de novo, flag and output snp detail and variant info, (count in pop, children ancestors etc)
 */
 	//statsOut.write(s"Chrom\tPos\tRef\tRefSize\tAlt\tAltSize\tQUAL\tTrio\tGenotype\tPLs\tPhase\t Vars S|D Haps S|D\tAnces\tPars\tChildren\tDesc\tExFam\tPop\tPopFreq\tSupport Ratio\tScore\tClass\tProband\tSire\tDam\tPopRefCount\tPopAltCount\tWarning\tPhaseInfo\n")
-	println(s"Chrom\tPos\tRef\tRefSize\tAlt\tAltSize\tQUAL\tTrio\tGenotype\tPLs\tPhase\t Vars S|D Haps S|D\tAnces\tPars\tChildren\tDesc\tExFam\tPop\tPopFreq\tSupport Ratio\tScore\tClass\tProband\tSire\tDam\tPopRefCount\tPopAltCount\tWarning\tPhaseInfo")
+	println(s"Chrom\tPos\tTRI-NUC\tRef\tRefSize\tAlt\tAltSize\tQUAL\tTrio\tGenotype\tPLs\tPhase\t Vars S|D Haps S|D\tAnces\tPars\tChildren\tDesc\tExFam\tPop\tPopFreq\tSupport Ratio\tScore\tClass\tProband\tSire\tDam\tPopRefCount\tPopAltCount\tWarning\tPhaseInfo")
 	var lastChr = ""
 	
 	System.err.println("Phasing Complete, beginning De Novo identification & Characterisation")
@@ -964,13 +999,15 @@ tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 							errors.print("\n")
 							}
 							*/
+						var triNuc = refTable(line(0)).apply(line(1).toInt -1).toString + refTable(line(0)).apply(line(1).toInt).toString + refTable(line(0)).apply(line(1).toInt +1).toString
+						var triNucAlt = triNuc(0) + line(4) + triNuc(2)
 						
 						if (reoccur && adratio == 0.0){
-							print(s"${line(0)}\t${line(1)}\t${line(3)}\t${line(3).size}\t${line(4)}\t${line(4).size}\t${line(5)}\t${fam._1}\t'${proGT}\t${if (PLexist) proBand(PL) else -1}\t${phaseQual}\t${ances}\t${par}\t${kids}\t${desc}\t${exFamFreq}\t${popFreq}\t${popFreq.toFloat/(animalIDS.size)}\t${proRatio._2/(proRatio._1.toFloat + proRatio._2)}\t${rank}\tdenovo\t" + 
+							print(s"${line(0)}\t${line(1)}\t${triNuc}>${triNucAlt}\t${line(3)}\t${line(3).size}\t${line(4)}\t${line(4).size}\t${line(5)}\t${fam._1}\t'${proGT}\t${if (PLexist) proBand(PL) else -1}\t${phaseQual}\t${ances}\t${par}\t${kids}\t${desc}\t${exFamFreq}\t${popFreq}\t${popFreq.toFloat/(animalIDS.size)}\t${proRatio._2/(proRatio._1.toFloat + proRatio._2)}\t${rank}\tdenovo\t" + 
 								proRatio + "\t" + selROvAD(par1,AD, RO, AO, GT) + " " + (if (PLexist) par1(PL) else "0,0,0") + "\t" + selROvAD(par2,AD, RO, AO, GT) + " " + (if (PLexist) par2(PL) else "0,0,0") + s"\t${popRef}\t${popALT}\t\t${allChildrenState}\n")
 							out_vcf.write(line.reduceLeft{(a,b) => a + "\t" + b} + "\n")
 						}else {
-							print(s"${line(0)}\t${line(1)}\t${line(3)}\t${line(3).size}\t${line(4)}\t${line(4).size}\t${line(5)}\t${fam._1}\t'${proGT}\t${if (PLexist) proBand(PL) else -1}\t${phaseQual}\t${ances}\t${par}\t${kids}\t${desc}\t${exFamFreq}\t${popFreq}\t${popFreq.toFloat/(animalIDS.size)}\t${proRatio._2/(proRatio._1.toFloat + proRatio._2)}\t${rank}\tdenovo\t" + 
+							print(s"${line(0)}\t${line(1)}\t${triNuc}>${triNucAlt}\t${line(3)}\t${line(3).size}\t${line(4)}\t${line(4).size}\t${line(5)}\t${fam._1}\t'${proGT}\t${if (PLexist) proBand(PL) else -1}\t${phaseQual}\t${ances}\t${par}\t${kids}\t${desc}\t${exFamFreq}\t${popFreq}\t${popFreq.toFloat/(animalIDS.size)}\t${proRatio._2/(proRatio._1.toFloat + proRatio._2)}\t${rank}\tdenovo\t" + 
 							proRatio + "\t" + selROvAD(par1,AD, RO, AO, GT) + " " + (if (PLexist) par1(PL) else "0,0,0") + "\t" + selROvAD(par2,AD, RO, AO, GT) + " " + (if (PLexist) par2(PL) else "0,0,0") +  s"\t${popRef}\t${popALT}")
 							if (adratio != 0.0) {
 								line(6) = "LOWQUAL_ADratio"
