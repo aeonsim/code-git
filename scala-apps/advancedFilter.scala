@@ -535,6 +535,8 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 			PL = if (format.contains("PL")) format.indexOf("PL") else format.indexOf("GL")
 			PLexist = true
 		}
+	
+	/* Change code to output raw phase to disk rather than memory then reread files to build blocks */
 		
 		
 		for (fam <- trios.par){
@@ -546,11 +548,8 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 				val sire = phaseLine(vcfanimals(family._2(0))).split(":")
 				val dam = phaseLine(vcfanimals(family._2(1))).split(":")
 				
-				//println("pro" + proband.reduceLeft{(a,b) => a + ":" + b} + " " + phaseLine(8))
 				val pDP = if (proband.size > DP && proband(DP) != ".") proband(DP).toInt else 0
-				//println("sire" + sire.reduceLeft{(a,b) => a + ":" + b} + " " + phaseLine(8))
 				val sDP = if (sire.size > DP && sire(DP) != ".") sire(DP).toInt else 0
-				//println("dam" + dam.reduceLeft{(a,b) => a + ":" + b} + " " + phaseLine(8))
 				val dDP = if (dam.size > DP && dam(DP) != ".") dam(DP).toInt else 0
 				
 				if (pDP >= 51) readDepths(fam._1)(51) += 1 else readDepths(fam._1)(pDP) += 1
@@ -568,7 +567,6 @@ var tmpPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 						
 				for (kid <- family._3){
 					var curKid = phaseLine(vcfanimals(kid)).split(":")
-					//println(curKid.reduceLeft{(a,b) => a + ":" + b} + " " + phaseLine(8))
 					val kidDP = if (curKid.size > DP && curKid(DP) != ".") curKid(DP).toInt else 0
 					if (kidDP >= 51) readDepths(kid)(51) += 1 else readDepths(kid)(kidDP) += 1
 					
