@@ -594,12 +594,16 @@ var phaseBlock = new HashMap[String,List[Tuple4[String,Int,Int,String]]]
 		}
 	} //While Phasing
 	
-	for (fam <- trios.par){
-		for (kid <- fam._2._3){
-			//tmpPhase(kid) = tmpPhase(kid).reverse.tail
-			rawOutput.foreach(child => child._2.close)
-		} 
+	for (fileout <- rawOutput){
+		fileout._2.close
 	}
+	
+	//for (fam <- trios){
+		//for (kid <- fam._2._3){
+			//tmpPhase(kid) = tmpPhase(kid).reverse.tail
+		//rawOutput.foreach(child => child._2.close)
+		//} 
+	//}
 	
 	phaseInfo.close
 	
