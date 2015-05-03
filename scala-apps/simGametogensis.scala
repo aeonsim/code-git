@@ -7,7 +7,18 @@ for (n <-  (1 to 100)){
 val rand = scala.util.Random
 val genomeSize = 2147000000
 //val genomeSize = 2600000000L
-val addSharedSoma = 10
+val addSharedSoma = 8
+
+/* Different differentiation events in embryo development */
+
+val innerCellForm = 6
+val innerCellPercent = 0.21
+val ebiBlastFormation = 4
+val epiBlastPercent = 0.5
+val embEbpi = 6
+val embEbpiPercent = 0.5
+
+
 val pgcRepMale = 16
 val pgcRepFemale = 18
 val sprmgon = 500000
@@ -31,7 +42,28 @@ result
 
 var cells: List[List[Int]] = List(mutGen(poi.sample))
 
-for (i <- 1 to 8) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+for (i <- 1 to innerCellForm) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+
+var newCells: List[List[Int]] = Nil
+
+for (i <- 1 to (cells.size * innerCellPercent).toInt) newCells = cells(rand.nextInt(cells.size)) :: newCells
+
+cells = newCells
+newCells = Nil
+
+for (i <- 1 to ebiBlastFormation) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+
+for (i <- 1 to (cells.size * epiBlastPercent).toInt) newCells = cells(rand.nextInt(cells.size)) :: newCells
+
+cells = newCells
+newCells = Nil
+
+for (i <- 1 to embEbpi) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+
+for (i <- 1 to (cells.size * embEbpiPercent).toInt) newCells = cells(rand.nextInt(cells.size)) :: newCells
+
+cells = newCells
+newCells = Nil
 
 var PGC: List[List[Int]] = Nil
 for (i <- 1 to 6) PGC = cells(rand.nextInt(cells.size)) :: PGC
@@ -39,7 +71,7 @@ println(s"Selected ${PGC.size} PGCs, Soma is ${cells.size} cells")
 
 for (i <- 1 to addSharedSoma) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
 
-PGC = cells.splitAt(34)._1 ::: PGC
+for (i <- 1 to 34) PGC = cells(rand.nextInt(cells.size)) :: PGC
 val blood = cells
 cells = Nil
 println(s"After ${addSharedSoma} additional reps have selected 34 additional PGCs, now have ${PGC.size} PGCs")
