@@ -1,0 +1,38 @@
+import java.io._
+import net.sf.samtools.util._
+
+object depthCalc {
+
+def main (args: Array[String]): Unit = {
+
+if (args.size <= 2){
+println("scala -cp sam.jar depthCalc.scala minDepth maxDepth TXT.gz TXT.gz TXT.gz ...")
+println("Takes in per base pair depth files in the format of 'Chr\tPos\tDepth' and outputs \n percentage of the genome shared by all files that meet the requirements.")
+System.exit(1)
+}
+
+var pass, fail = 0
+
+val depth = args(0).toInt
+val max = args(1).toInt
+var data: List[BufferedReader] = Nil
+
+for (i <- 2 to (args.size -1)){
+data = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream(args(i))))) :: data
+}
+
+while (data(0).ready && data(1).ready && data(2).ready){
+var nums: List[Int] = Nil
+
+for (i <- data){
+nums = i.readLine.split("\t")(2).toInt :: nums
+}
+
+if (nums.sorted.apply(0) >= depth && nums.sorted.apply(nums.size - 1) <= max) pass += 1 else fail += 1
+nums = Nil
+}
+
+println("Pass " + pass + " Fail " + fail + "  Percentage of Genome useable " + (pass / (pass + fail).toDouble ) )
+}//main
+
+}
