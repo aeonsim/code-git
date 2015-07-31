@@ -195,12 +195,16 @@ var outline = false
 val outPos = new BufferedWriter(new FileWriter(cfam + ".phased.targets.txt"))
 var targPos = 0
 
+var rawPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
+
 print("ID\tChr\tPos\tGT1\tGT2\t=>" )
 outPos.write("Target")
 for(kid <- fam1._5){
-print("\t" + kid)
 outPos.write("\t" + kid)
+print("\t" + kid)
+rawPhase += kid -> Nil
 }
+
 outPos.write("\n")
 print("\n")
 var prevChrm = "0"
@@ -218,7 +222,7 @@ prevPos = 0
 
 val curPhase = phase(currentLine(ID2COLUMN(fam1._3)),currentLine(ID2COLUMN(fam1._1)),currentLine(ID2COLUMN(fam1._2)))
 
-
+/*
 for (denovo <- targets){
 val cand = denovo.split(":")
 if (cand(0) == currentLine(1) && cand(1).toInt < currentLine(2).toInt && cand(1).toInt > prevPos){
@@ -227,6 +231,7 @@ outline = true
 targPos = cand(1).toInt
 }
 } //targets
+*/
 
 
 if (curPhase._1 != "x"){
@@ -240,65 +245,49 @@ val kidphase = childPhase(curPhase,currentLine(ID2COLUMN(kid)))
 if (kidphase != prev(kid) && kidphase != "U") {
 System.err.println(currentLine(1) + "\t" + currentLine(2) + "\tBREAKPOINT\t" + kid + "\t:\t" + prev(kid) + "\t=>\t" + kidphase)
 
-val prevDif = scala.math.abs(prevPos - targPos)
-val curDif = scala.math.abs(currentLine(2).toInt - targPos)
-
-if (outline) { 
-if (prev(kid) == ".") outPos.write("\t" + kid + "\t" + kidphase) else {
-if (prevDif >= curDif) outPos.write("\t" + kid + "\t" + kidphase) else outPos.write("\t" + kid + "\t" + prev(kid)) 
-}
-}
-
 }
 
 if (kidphase == "U") {
-
-if (outline) outPos.write("\t" + prev(kid))
-print("\t" + kid + "\t" + prev(kid)) 
-
+//print("\t" + prev(kid)) 
+print("\t" + "U") 
+//rawPhase(kid) = (currentLine(1),currentLine(2).toInt,prev(kid)) :: rawPhase(kid) 
+rawPhase(kid) = (currentLine(1),currentLine(2).toInt,"U") :: rawPhase(kid) 
 } else {
-
-if (outline) outPos.write("\t" + kid + "\t" + kidphase)
+rawPhase(kid) = (currentLine(1),currentLine(2).toInt,kidphase) :: rawPhase(kid) 
 print("\t" + kidphase)
 prev(kid) = kidphase
-
 }
 
 } //for kids in family
 
 print("\n")
-if (outline) outPos.write("\n")
 
-} else {
-if (outline){
-for (kid <- fam1._5){
-outPos.write("\t" + kid + "\t" + prev(kid))
-}
-outPos.write("\n")
-}
+} 
 
 }//Not x
 
 prevPos = currentLine(2).toInt
 outline = false
-}//while ready
+//while ready
 
 //Input Chrom, Pos, Phase
 
+
+var phaseTracking = new HashMap[String, phaseTracker]
+var phaseBlock = new HashMap[String,List[Tuple5[String,Int,Int,String,Int]]]
+val chroms = Array("1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","X")
+//val chroms = Array("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chr23","chr24","chr25","chr26","chr27","chr28","chr29","chrX")
+
 for(child <- fam1._5){
+	System.err.println(child + " " + rawPhase(child).size)
 			var blocks = new HashMap[String,Array[Tuple5[String, Int, Int, String,Int]]]
-			var phased : List[Tuple3[String,Int,String]] = Nil 
+			//var phased : List[Tuple3[String,Int,String]] = Nil 
 			
-		while (in.ready){
-				/* Read file into Array of tuples */
-				val line = in.readLine.split("\t")
-				if (line.size >= 3) phased = (line(0),line(1).toInt,line(2)) :: phased
-			}
-			in.close
-			
-			if(phased.size > 0) {
+			if(rawPhase(child).size > 0) {
 						
-			val childOrigin = phased.reverse.toArray
+			val childOrigin = rawPhase(child).reverse.toArray
+			System.err.println(rawPhase(child).reverse(0) + " " + rawPhase(child).reverse(1))
+			//val childOrigin = rawPhase(child).toArray
 			
 			var count, score = 0			
 			var chrom = childOrigin(count)._1
@@ -306,12 +295,12 @@ for(child <- fam1._5){
 			var start = childOrigin(count)._2
 			var end = childOrigin(count)._2
 			
-			if (!phaseBlock.contains(child._1) ) phaseBlock += child._1 -> Nil
+			if (!phaseBlock.contains(child) ) phaseBlock += child -> Nil
 			
 			while (count < (childOrigin.size -1)){
 				count +=1
 				if (parent != childOrigin(count)._3 || chrom != childOrigin(count)._1){
-					phaseBlock(child._1) = Tuple5(chrom,start,end,parent,score) :: phaseBlock(child._1)
+					phaseBlock(child) = Tuple5(chrom,start,end,parent,score) :: phaseBlock(child)
 					chrom = childOrigin(count)._1
 					parent = childOrigin(count)._3
 					start = childOrigin(count)._2
@@ -322,21 +311,28 @@ for(child <- fam1._5){
 					score += 1
 				}				
 			}
-			phaseBlock(child._1) = Tuple5(chrom,start,end,parent,score) :: phaseBlock(child._1)
+			phaseBlock(child) = Tuple5(chrom,start,end,parent,score) :: phaseBlock(child)
 			
-			for (ch <- vcfChrs){
-				blocks += ch -> phaseBlock(child._1).filter(blk => blk._5 > 2).filter(blk => blk._1 == ch).reverse.toArray
+			for (ch <- chroms){
+				blocks += ch -> phaseBlock(child).filter(blk => blk._1 == ch).reverse.toArray
 			}		
-			phaseTracking += child._1 -> new phaseTracker(blocks)
+			phaseTracking += child -> new phaseTracker(blocks)
 		} else {
-			for (ch <- vcfChrs){
+			for (ch <- chroms){
 				blocks += ch -> Array()
 			}
-			phaseTracking += child._1 -> new phaseTracker(blocks)
+			phaseTracking += child -> new phaseTracker(blocks)
 		}
-	}
+		}
 
-phaseBlock = new HashMap[String,List[Tuple5[String,Int,Int,String,Int]]]
+for (denovo <-  targets){
+outPos.write(denovo)
+val cand = denovo.split(":")
+for (kid <- fam1._5){
+outPos.write("\t" + (if (phaseTracking(kid).getPhase(cand(0),cand(1).toInt) == "BOTH") phaseTracking(kid).getNearestBlock(cand(0),cand(1).toInt) else phaseTracking(kid).getPhase(cand(0),cand(1).toInt)))
+}
+outPos.write("\n")
+}
 
 
 

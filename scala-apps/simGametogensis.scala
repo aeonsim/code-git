@@ -11,11 +11,11 @@ val addSharedSoma = 8
 
 /* Different differentiation events in embryo development */
 
-val innerCellForm = 6
+val innerCellForm = 7
 val innerCellPercent = 0.21
 val ebiBlastFormation = 4
 val epiBlastPercent = 0.5
-val embEbpi = 6
+val embEbpi = 4
 val embEbpiPercent = 0.5
 
 

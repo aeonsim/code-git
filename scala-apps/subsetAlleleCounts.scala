@@ -1,7 +1,7 @@
 import java.io._
 
-val inVcf = new BufferedReader(new FileReader("/Users/chhar0/Dropbox/PHD-WORK/VALIDATION/freebayes.vcf"))
-val outSub = new BufferedWriter(new FileWriter("miseqReadCounts.txt"))
+val inVcf = new BufferedReader(new FileReader("freebayes.sub.missing.bam.vcf"))
+val outSub = new BufferedWriter(new FileWriter("/Users/chhar0/Dropbox/PHD-WORK/BoG15-working/FB-WGS-ReadCounts.txt"))
 
 var currentLine = inVcf.readLine.split("\t")
 
