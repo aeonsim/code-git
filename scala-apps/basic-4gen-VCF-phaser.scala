@@ -13,6 +13,9 @@ import scala.collection.mutable.HashMap
 import scala.math._
 
 class phaseTracker (phaseData: HashMap[String,Array[Tuple5[String,Int,Int,String,Int]]]){
+
+
+
 	
 	var curPhaseBlocks = new HashMap[String,Int]
 	for (c <- phaseData.keys){
@@ -50,7 +53,7 @@ class phaseTracker (phaseData: HashMap[String,Array[Tuple5[String,Int,Int,String
 }
 
 
-object abPhaser {
+object simplePhase {
 
 import java.io._
 import scala.collection.mutable.HashMap
@@ -143,11 +146,47 @@ def getGT(data: String) : String = {
 	}
 }
 
+/*
+//def getRecP(prevDP: Double, prevSP: Double, curDP: Double, curSP: Double, phase: String) : Tuple2[Double,Double] = {
+def isRec(prevDP: Double, prevSP: Double, phase: String) : Boolean = {
+
+prevDamP = curDamP
+prevSireP = curSireP
+val cS = if (phase = "S") prevSP + (baseSireP * prevDP) else prevSP - (baseSireP * prevSP)
+val cD = if (phase = "D") prevDP + (baseDamP * prevSP) else prevDP - (baseDamP * prevDP)
+
+
+
+if ((cD > cS && cD < prevSP) || (cS > cD && cS < prevDP)) true else false
+}
+*/
+
+/*
+*	Recombination probability function returns Tuple2(ProbDam, ProbSire)
+*/
+
+def getRecP(prevDP: Double, prevSP: Double, phase: String) : Tuple2[Double,Double] = {
+val baseDamP, baseSireP = 0.49
+
+val cD = if (phase == "D") (prevDP + (baseDamP * prevSP)) else (prevDP - (baseDamP * prevDP))
+val cS = if (phase == "S") (prevSP + (baseSireP * prevDP)) else (prevSP - (baseSireP * prevSP))
+
+(cD,cS)
+}
+
+
 def main (args: Array[String]) : Unit = {
 import net.sf.samtools.util._
 
+val baseDamP, baseSireP = 0.49
+var prevDamP, prevSireP = baseDamP
+var curDamP, curSireP = 0.0
+
+
 val ped = new BufferedReader(new FileReader("/scratch/aeonsim/vcfs/ref-peds/CRV-pedigree-800K.ped"))
-val GTs = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("/home/projects/bos_taurus/damona/vcfs/GATK-HC-10-Dec-2014-Mosaic-hunting.sorted.dbsnp.renamed.vcf.gz"))))
+//val GTs = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("/home/projects/bos_taurus/damona/vcfs/GATK-HC-10-Dec-2014-Mosaic-hunting.sorted.dbsnp.renamed.vcf.gz"))))
+val GTs = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("/home/aeonsim/quickPhase/Damona-Mendelian-Consistant-Jul-24.vcf.gz"))))
+
 val familyStruc = new BufferedWriter(new FileWriter(args(0) + ".txt"))
 val targets = Array("1:20685483","1:20686441","1:45112139","1:51910329","1:72951069","1:97016955","1:126381931","2:75906827","2:79427071","2:112292340","2:112504415","2:134281292","3:43959715","3:53422946","3:75872618","4:113354881","5:36704515","5:41979803","5:41979804","5:120892467","6:21950345","6:35745447","6:112271783","7:21700920","7:49632157","8:10605678","8:31372887","8:40252470","9:43952072","9:86942337","9:96048216","10:491674","10:102808584","11:35306013","11:35306025","11:82969272","11:83075673","11:89422735","12:87938762","13:21363737","13:26725465","14:21325160","14:41813012","14:74925688","14:83709794","16:44658436","16:50384297","16:51332968","17:10447474","17:15961079","17:41784655","17:59076286","17:70143316","18:6505926","19:21113066","19:29060137","20:344573","20:64353624","21:64806901","21:70782567","23:13861856","23:28578136","23:29507176","23:30528411","23:52456938","25:40438599","26:10183274","26:36774923","29:3416251","X:23460318")
 
@@ -162,7 +201,7 @@ val targets = Array("1:20685483","1:20686441","1:45112139","1:51910329","1:72951
 
 val ID2COLUMN = new HashMap[String, Int]
 var prev = new HashMap[String,String]
-//val fam1 = ("NL137409985","NL141317243","NL288458773",List("NL344991226","NL351142406","NL420753074","NL422595517","NL422743921","NL422977809","NL422992547","NL422992631","NL423125012","NL424291840","NL425596544","NL429353455","NL429486883","NL431320788","NL443684324","NL466227919","NL467115305","NL477342393","NL480773638"))
+/*val fam1 = ("NL137409985","NL141317243","NL288458773",List("NL344991226","NL351142406","NL420753074","NL422595517","NL422743921","NL422977809","NL422992547","NL422992631","NL423125012","NL424291840","NL425596544","NL429353455","NL429486883","NL431320788","NL443684324","NL466227919","NL467115305","NL477342393","NL480773638"))*/
 var currentLine = GTs.readLine.split("\t")
 
 while (currentLine(0).apply(1) == '#') currentLine = GTs.readLine.split("\t")
@@ -200,7 +239,7 @@ familyStruc.write(s"\t${fam1._3}")
 //fam1._4.foreach(s => familyStruc.write("\t" + s))
 fam1._5.foreach(s => familyStruc.write("\t" + s))
 familyStruc.write("\n")
-familyStruc.close
+
 
 for(kid <- fam1._5){
 prev += kid -> "."
@@ -213,17 +252,31 @@ var targPos = 0
 
 var rawPhase = new HashMap[String,List[Tuple3[String,Int,String]]]
 
-print("#CHROM\tSTART\tEND\tID" )
+print("CHROM\tSTART\tEND\tID" )
 outPos.write("Target")
 for(kid <- fam1._5){
 outPos.write("\t" + kid)
-print("\t" + kid)
+print(s"\t${kid}\tD-${kid}\tS-${kid}")
 rawPhase += kid -> Nil
 }
 
 outPos.write("\n")
 print("\n")
 var prevChrm = "0"
+
+var prevSirePhases = new HashMap[String,Double]
+var prevDamPhases = new HashMap[String,Double]
+var curPhases = new HashMap[String,Double]
+var prevPhase = new HashMap[String,Tuple2[String,String]]
+
+for (kid <- fam1._5){
+prevDamPhases += kid -> baseDamP
+prevSirePhases += kid -> baseSireP
+prevPhase += kid -> ("","")
+//curDamPhases += kid -> 0.0
+//curSirePhases += kid -> 0.0
+}
+
 
 while (GTs.ready){
 currentLine = GTs.readLine.split("\t")
@@ -233,11 +286,15 @@ if (DP == 0) DP = currentLine(8).split(":").indexOf("DP")
 val MQval = currentLine(7).split(";").indexOf("MQ")
 var MQ = if (MQval > 0) currentLine(7).split(";")(MQval).toFloat else 99.0
 
-if (currentLine(1) != prevChrm){
+if (currentLine(0) != prevChrm){
 for (kid <- prev.keys){
 prev(kid) = "."
+prevDamPhases(kid) = baseDamP
+prevSirePhases(kid) = baseSireP
+curSireP = baseSireP
+curDamP = baseDamP
 }
-prevChrm = currentLine(1)
+prevChrm = currentLine(0)
 prevPos = 0
 }
 
@@ -254,29 +311,64 @@ targPos = cand(1).toInt
 } //targets
 */
 
-
 if (curPhase._1 != "x"){
 
 print(currentLine(0) + "\t" + currentLine(1) + "\t" + currentLine(1) + "\t" + currentLine(2))
 
 for (kid <- fam1._5){
 
-val kidphase = childPhase(curPhase,getGT(currentLine(ID2COLUMN(kid))))
+prevDamP = prevDamPhases(kid)
+prevSireP = prevSirePhases(kid)
 
-if (kidphase != prev(kid) && kidphase != "U") {
-System.err.println(currentLine(0) + "\t" + currentLine(1) + "\tBREAKPOINT\t" + kid + "\t:\t" + prev(kid) + "\t=>\t" + kidphase)
 
+val kidphase : String = if (ID2COLUMN.contains(pedFile(kid)(2)) && ID2COLUMN.contains(pedFile(kid)(3))) {
+val chPhase = phase(getGT(currentLine(ID2COLUMN(kid))),getGT(currentLine(ID2COLUMN(pedFile(kid)(2)))),getGT(currentLine(ID2COLUMN(pedFile(kid)(3)))))
+if (chPhase == ("x","x")){
+childPhase(curPhase,getGT(currentLine(ID2COLUMN(kid))))
+} else{
+familyStruc.write(currentLine(1) + "\t" + chPhase + "\n")
+//Work out Which parent and what phase
+if(fam1._3 == pedFile(kid)(2)){
+//Sire
+if (chPhase._1 == curPhase._1) "S" else if (chPhase._1 == curPhase._2) "D" else "U"
+} else {
+if (fam1._3 == pedFile(kid)(2)){
+//Dam
+if (chPhase._2 == curPhase._1) "S" else if (chPhase._2 == curPhase._2) "D" else "U"
+} else "U"
 }
 
-if (kidphase == "U") {
-//print("\t" + prev(kid)) 
-print("\t" + "U") 
-//rawPhase(kid) = (currentLine(1),currentLine(2).toInt,prev(kid)) :: rawPhase(kid) 
-rawPhase(kid) = (currentLine(0),currentLine(1).toInt,"U") :: rawPhase(kid) 
+}
 } else {
-rawPhase(kid) = (currentLine(0),currentLine(1).toInt,kidphase) :: rawPhase(kid) 
-print("\t" + kidphase)
-prev(kid) = kidphase
+childPhase(curPhase,getGT(currentLine(ID2COLUMN(kid))))
+}
+
+
+
+if (kidphase == "U") {
+	print(s"\tU\t${prevDamP}\t${prevSireP}") 
+
+	rawPhase(kid) = (currentLine(0),currentLine(1).toInt,"U") :: rawPhase(kid) 
+} else {
+	//def getRecP(prevDP: Double, prevSP: Double, phase: String) : Tuple2[Double,Double]
+	val probs = getRecP(prevDamP,prevSireP,kidphase)
+	curDamP = probs._1
+	curSireP = probs._2
+	
+//if ((cD > cS && cD < prevSP) || (cS > cD && cS < prevDP)) true else false
+	if (kidphase != prev(kid) && ((curDamP > curSireP && curDamP < prevSirePhases(kid)) || (curSireP > curDamP && curSireP < prevDamPhases(kid)))) {
+		if (prevPhase(kid)._2 == kidphase ) {
+		System.err.println(currentLine(0) + "\t" + prevPhase(kid)._1 + "\tBREAKPOINT\t" + kid + "\t:\t" + prev(kid) + "\t=>\t" + kidphase + s"\tDam:${prevDamPhases(kid)} -> ${curDamP}\t${prevSirePhases(kid)} -> ${curSireP}\t")
+		} else{
+		System.err.println(currentLine(0) + "\t" + currentLine(1) + "\tBREAKPOINT\t" + kid + "\t:\t" + prev(kid) + "\t=>\t" + kidphase + s"\tDam:${prevDamPhases(kid)} -> ${curDamP}\t${prevSirePhases(kid)} -> ${curSireP}\t")
+		}
+	}
+	prevPhase(kid) = (currentLine(1),kidphase)
+	rawPhase(kid) = (currentLine(0),currentLine(1).toInt,kidphase) :: rawPhase(kid) 
+	print("\t" + kidphase + "\t" + curDamP + "\t" + curSireP)
+	prev(kid) = kidphase
+	prevSirePhases(kid) = curSireP
+	prevDamPhases(kid) = curDamP
 }
 
 } //for kids in family
@@ -357,7 +449,7 @@ outPos.write("\n")
 
 
 
-
+familyStruc.close
 outPos.close
 }//eMain
 
