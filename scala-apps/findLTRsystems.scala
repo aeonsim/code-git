@@ -13,7 +13,7 @@ object findMobileElements{
 def main (args: Array[String]){
 
 if (args.contains("-h") || args.contains("--help") || args.size < 3){
-println("JAVA_OPTS=-Xmx4g scala -cp htsjdk-1.139.jar:. findMobileElements <SAMPLENAME> <SAMPLEBAM> <REPEATS_DB_UCSC>")
+println("JAVA_OPTS=-Xmx4g scala -cp htsjdk-1.139.jar:. findMobileElements <SAMPLENAME> <SAMPLEBAM> <REPEATS_DB_UCSC> <UNIQUE true/false>")
 System.exit(0)
 }
 
@@ -22,15 +22,15 @@ val Chroms = Array(("chr1",158337067),("chr2",137060424),("chr3",121430405),("ch
 val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 var alignments = input.queryAlignmentStart(Chroms(0)._1,1)
 val outFactory = new htsjdk.samtools.SAMFileWriterFactory
-val output = outFactory.makeSAMWriter(input.getFileHeader,true,new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.notPP.sec.sam"))
+val output = outFactory.makeSAMWriter(input.getFileHeader,true,new File(s"${args(0)}.notPP.sec.sam"))
 
 val repeats = new BufferedReader(new FileReader(new File(args(2))))
 
-val outFWD = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.notPP.metrics.fwd.bedgraph")))
-val outREV = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.notPP.metrics.rev.bedgraph")))
+val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.metrics.fwd.bedgraph")))
+val outREV = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.metrics.rev.bedgraph")))
 //val outDIF = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.notPP.metrics.DIF.bedgraph")))
-val outRSPL = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.sec.metrics.split.rev.bedgraph")))
-val outFSPL = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.sec.metrics.split.fwd.bedgraph")))
+val outRSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.sec.metrics.split.rev.bedgraph")))
+val outFSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.sec.metrics.split.fwd.bedgraph")))
 //val outAll = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.all.bedgraph")))
 
 outFWD.write("track type=bedGraph\n")
@@ -42,17 +42,17 @@ outFSPL.write("track type=bedGraph\n")
 
 input.close
 
-val repeatsChrom = new HashMap[String,Array[Tuple5[Int,Int,String,String,String]]]
-var repList: List[Tuple5[Int,Int,String,String,String]] = Nil
+val repeatsChrom = new HashMap[String,Array[Tuple6[Int,Int,String,String,String,String]]]
+var repList: List[Tuple6[Int,Int,String,String,String,String]] = Nil
 var prevChrom = ""
 
 while (repeats.ready){
 	val tmp = repeats.readLine.split("\t")
 	if (prevChrom == tmp(5)){
-		repList = (tmp(6).toInt,tmp(7).toInt,tmp(10),tmp(11),tmp(12)) :: repList
+		repList = (tmp(6).toInt,tmp(7).toInt,tmp(10),tmp(11),tmp(12),tmp(9)) :: repList
 	} else {
 		repeatsChrom += prevChrom -> repList.reverse.toArray
-		repList = (tmp(6).toInt,tmp(7).toInt,tmp(10),tmp(11),tmp(12)) :: Nil
+		repList = (tmp(6).toInt,tmp(7).toInt,tmp(10),tmp(11),tmp(12),tmp(9)) :: Nil
 		prevChrom = tmp(5)
 	}
 }
@@ -62,14 +62,14 @@ repList = Nil
 prevChrom = ""
 repeats.close
 
-def isLTR (pos: Int, curSearch: Array[Tuple5[Int,Int,String,String,String]]) : Boolean = {
+def isLTR (pos: Int, curSearch: Array[Tuple6[Int,Int,String,String,String,String]]) : Tuple2[Boolean,String] = {
 	val half = scala.math.floor(curSearch.length/2).toInt
 	//println(s"${pos} arraysize: ${curSearch.length}  half:${half}")
-	if (curSearch.length == 0) {false} else {
+	if (curSearch.length == 0) {(false,"")} else {
 		if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-			true
+			(true,curSearch(half)._6)
 		} else {
-			if (curSearch.length <= 1) false else {
+			if (curSearch.length <= 1) (false,"") else {
 				if (curSearch(half)._1 > pos) isLTR(pos,curSearch.slice(0,half)) else isLTR(pos,curSearch.slice(half + 1,curSearch.length))
 			}
 		}
@@ -94,11 +94,15 @@ for (chrs <- Chroms){
 		/* If the next read is outside of the current region then write out region and advance */
 		//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
 		if (tmp.getAlignmentStart >= end){
-			if (fwdCount >= 1) outFWD.write(chrs._1 + "\t" + start + "\t" + end + "\t" + fwdCount + "\n")
-			if (revCount >= 1) outREV.write(chrs._1 + "\t" + start + "\t" + end + "\t" + revCount + "\n")
+			//if (fwdCount >= 1) 
+			outFWD.write(chrs._1 + "\t" + start + "\t" + end + "\t" + fwdCount + "\n")
+			//if (revCount >= 1) 
+			outREV.write(chrs._1 + "\t" + start + "\t" + end + "\t" + revCount + "\n")
 			//if (fwdCount >= 1 && revCount >= 1) outDIF.write(chrs._1 + "\t" + start + "\t" + end + "\t" + scala.math.abs(revCount-fwdCount) + "\n")
-			if (splFCount >= 1) outFSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splFCount + "\n")
-			if (splRCount >= 1) outRSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splRCount + "\n")
+			//if (splFCount >= 1) 
+			outFSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splFCount + "\n")
+			//if (splRCount >= 1) 
+			outRSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splRCount + "\n")
 			//if (allCount >= 1) outAll.write(chrs._1 + "\t" + start + "\t" + end + "\t" + allCount + "\n")
 			
 			start = end
@@ -115,18 +119,29 @@ for (chrs <- Chroms){
 		if ((tmp.getProperPairFlag == false || tmp.getNotPrimaryAlignmentFlag == true) && repeatsChrom.contains(tmp.getMateReferenceName)){
 			
 			/*	Check to see if your mate is present in a repeat if it isn't do nothing/loop if it is write it out to the SAM*/
+			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
+			val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
 			
-			if (isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName)) && tmp.getMateUnmappedFlag == false && tmp.getMappingQuality >= 60 && (tmp.getInferredInsertSize == 0 || scala.math.abs(tmp.getInferredInsertSize) >= 1000)){
+			if (curLTRcheck._1 && tmp.getMateUnmappedFlag == false && tmp.getMappingQuality >= 60 && (tmp.getInferredInsertSize == 0 || scala.math.abs(tmp.getInferredInsertSize) >= 1000) && (if (args(3) == "true") {if (curMainLTRcheck._1 && curLTRcheck._1) false else true} else true)){
 				allCount += 1
 				output.addAlignment(tmp)
 				
 				/* If -ve stand record in rev if your improper paired or Split else record in the fwd */
 				
 				if (tmp.getReadNegativeStrandFlag == true ){
-					if (tmp.getProperPairFlag == false) revCount += 1
+					if (tmp.getProperPairFlag == false)
+					{ 
+					revCount += 1
+					//println((if (tmp.getMateNegativeStrandFlag == true) "mate -" else "mate +") + "LTR " + curLTRcheck._2)
+					}
+					
 					if (tmp.getNotPrimaryAlignmentFlag == true) splRCount += 1
+					
 				} else {
-					if (tmp.getProperPairFlag == false) fwdCount += 1
+					if (tmp.getProperPairFlag == false) {
+					fwdCount += 1
+					//println((if (tmp.getMateNegativeStrandFlag == true) "mate -" else "mate +") + "LTR " + curLTRcheck._2)
+					}
 					if (tmp.getNotPrimaryAlignmentFlag == true) splFCount += 1
 				}
 			}
