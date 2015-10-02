@@ -26,19 +26,15 @@ val output = outFactory.makeSAMWriter(input.getFileHeader,true,new File(s"${args
 
 val repeats = new BufferedReader(new FileReader(new File(args(2))))
 
-val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.metrics.fwd.bedgraph")))
-val outREV = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.metrics.rev.bedgraph")))
-//val outDIF = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.notPP.metrics.DIF.bedgraph")))
-val outRSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.sec.metrics.split.rev.bedgraph")))
-val outFSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.sec.metrics.split.fwd.bedgraph")))
-//val outAll = new BufferedWriter(new FileWriter(new File(s"/scratch/aeonsim/LTR-retros/${args(0)}.all.bedgraph")))
+val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.fwd.bedgraph")))
+val outREV = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.rev.bedgraph")))
+val outRSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.rev.bedgraph")))
+val outFSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.fwd.bedgraph")))
 
 outFWD.write("track type=bedGraph\n")
 outREV.write("track type=bedGraph\n")
-//outDIF.write("track type=bedGraph\n")
 outRSPL.write("track type=bedGraph\n")
 outFSPL.write("track type=bedGraph\n")
-//outAll.write("track type=bedGraph\n")
 
 input.close
 
@@ -64,7 +60,6 @@ repeats.close
 
 def isLTR (pos: Int, curSearch: Array[Tuple6[Int,Int,String,String,String,String]]) : Tuple2[Boolean,String] = {
 	val half = scala.math.floor(curSearch.length/2).toInt
-	//println(s"${pos} arraysize: ${curSearch.length}  half:${half}")
 	if (curSearch.length == 0) {(false,"")} else {
 		if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
 			(true,curSearch(half)._6)
@@ -85,6 +80,7 @@ for (chrs <- Chroms){
 	var end = 1000
 	var start = 1
 	var fwdCount, revCount, splRCount, splFCount, isLTRCount, allCount = 0
+	var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 	val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 	var alignments = input.query(chrs._1,1,200000000,true)
 
@@ -93,17 +89,13 @@ for (chrs <- Chroms){
 		
 		/* If the next read is outside of the current region then write out region and advance */
 		//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
+		
 		if (tmp.getAlignmentStart >= end){
-			//if (fwdCount >= 1) 
-			outFWD.write(chrs._1 + "\t" + start + "\t" + end + "\t" + fwdCount + "\n")
-			//if (revCount >= 1) 
-			outREV.write(chrs._1 + "\t" + start + "\t" + end + "\t" + revCount + "\n")
-			//if (fwdCount >= 1 && revCount >= 1) outDIF.write(chrs._1 + "\t" + start + "\t" + end + "\t" + scala.math.abs(revCount-fwdCount) + "\n")
-			//if (splFCount >= 1) 
-			outFSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splFCount + "\n")
-			//if (splRCount >= 1) 
-			outRSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splRCount + "\n")
-			//if (allCount >= 1) outAll.write(chrs._1 + "\t" + start + "\t" + end + "\t" + allCount + "\n")
+			outFWD.write(chrs._1 + "\t" + start + "\t" + end + "\t" + fwdCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+			outREV.write(chrs._1 + "\t" + start + "\t" + end + "\t" + revCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+			outFSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splFCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+			outRSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splRCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+
 			
 			start = end
 			end += 1000
@@ -112,11 +104,19 @@ for (chrs <- Chroms){
 			splRCount = 0
 			splFCount = 0
 			allCount =  0
+			LTRpRn = 0
+			LTRpRp = 0
+			LTRnRp = 0
+			LTRnRn = 0
 		}
 		
 		/* IF your an improper pair or a secondary/split read and your mates chromosome is in the repeats database*/
 		
-		if ((tmp.getProperPairFlag == false || tmp.getNotPrimaryAlignmentFlag == true) && repeatsChrom.contains(tmp.getMateReferenceName)){
+		if (tmp.getProperPairFlag == false && tmp.getStringAttribute("SA") != null){
+			if (tmp.getReadNegativeStrandFlag) splRCount +=1 else splFCount += 1
+		}
+		
+		if ((tmp.getProperPairFlag == false || tmp.getStringAttribute("SA") != null || tmp.getSupplementaryAlignmentFlag == true) && repeatsChrom.contains(tmp.getMateReferenceName)){
 			
 			/*	Check to see if your mate is present in a repeat if it isn't do nothing/loop if it is write it out to the SAM*/
 			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
@@ -129,20 +129,23 @@ for (chrs <- Chroms){
 				/* If -ve stand record in rev if your improper paired or Split else record in the fwd */
 				
 				if (tmp.getReadNegativeStrandFlag == true ){
-					if (tmp.getProperPairFlag == false)
-					{ 
-					revCount += 1
-					//println((if (tmp.getMateNegativeStrandFlag == true) "mate -" else "mate +") + "LTR " + curLTRcheck._2)
+					if (tmp.getProperPairFlag == false){ 
+						revCount += 1
+						if (curLTRcheck._2 == "+"){
+							if (tmp.getMateNegativeStrandFlag == true) LTRnRn += 1 else LTRnRp += 1
+						}
 					}
-					
-					if (tmp.getNotPrimaryAlignmentFlag == true) splRCount += 1
+					//if (tmp.getSupplementaryAlignmentFlag == true || tmp.getStringAttribute("SA") != null) splRCount += 1
 					
 				} else {
 					if (tmp.getProperPairFlag == false) {
-					fwdCount += 1
-					//println((if (tmp.getMateNegativeStrandFlag == true) "mate -" else "mate +") + "LTR " + curLTRcheck._2)
+						fwdCount += 1
+						if (curLTRcheck._2 == "+"){
+							if (tmp.getMateNegativeStrandFlag == true) LTRpRn += 1 else LTRpRp += 1
+						}
+
 					}
-					if (tmp.getNotPrimaryAlignmentFlag == true) splFCount += 1
+					//if (tmp.getSupplementaryAlignmentFlag == true || tmp.getStringAttribute("SA") != null) splFCount += 1
 				}
 			}
 
@@ -153,27 +156,27 @@ for (chrs <- Chroms){
 	
 	/* Once outside the the Chr prepare things for the next Chr, and write the ends, close the current input*/
 	
-	outFWD.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + fwdCount + "\n")
-	outREV.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + revCount + "\n")
-	//outDIF.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + scala.math.abs(revCount-fwdCount) + "\n")
-	outFSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splFCount + "\n")
-	outRSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splRCount + "\n")
-	//outAll.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + allCount + "\n")
+	outFWD.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + fwdCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+	outREV.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + revCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+	outFSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splFCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+	outRSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splRCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
 
 	fwdCount = 0
 	revCount = 0
 	splRCount = 0
 	splFCount = 0
+	LTRpRn = 0
+	LTRpRp = 0
+	LTRnRp = 0
+	LTRnRn = 0
 	input.close
 }
 
 output.close
 outFWD.close
 outREV.close
-//outDIF.close
 outFSPL.close
 outRSPL.close
-//outAll.close
 }
 
 }
