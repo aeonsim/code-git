@@ -111,7 +111,6 @@ def main (args: Array[String]){
 					while (break.hasNext){
 						val tmpBreak = break.next
 						if ((breakpoints.contains(tmpBreak.getAlignmentStart) || breakpoints.contains(tmpBreak.getAlignmentEnd)) && tmpBreak.getProperPairFlag == true && tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S")) {
-							output.addAlignment(tmpBreak)
 							if (tmpBreak.getReadNegativeStrandFlag == false) fwdS += 1 else revS += 1
 						}
 					}
