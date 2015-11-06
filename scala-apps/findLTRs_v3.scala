@@ -83,9 +83,6 @@ def main (args: Array[String]){
 
 	for (chrs <- Chroms){
 		println(chrs._1)
-		var end = 1000
-		var start = 1
-		var fwdCount, revCount, splRCount, splFCount, isLTRCount, allCount = 0
 		var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 		val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 		var alignments = input.query(chrs._1,1,200000000,true)
@@ -107,6 +104,7 @@ def main (args: Array[String]){
 		def updateCounts(tmp: SAMRecord) : Unit = {
 			if (tmp.getAlignmentStart >= candidateWindowEnd || tmp.getAlignmentStart >= end){
 				if (splitEnd.size == 2){
+					val inputBreak = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 					var breakpoints = splitEnd.toArray.sorted
 					/* Extract reads covering break point if possible */
 					val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
