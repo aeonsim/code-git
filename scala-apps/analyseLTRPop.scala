@@ -7,9 +7,18 @@ import java.io._
 val fwd = org.apache.commons.io.FileUtils.listFiles(new File("."),Array("notPP.fwd.bedgraph"),true).iterator
 //val sFwd = org.apache.commons.io.FileUtils.listFiles(new File("."),Array("split.fwd.bedgraph"),true).iterator
 
-/* Chr -> Pos -> Tuple5[Obs,Carriers,Reads,Array[Int],SplitReads]*/
+val depths = new BufferedReader(new FileReader(new File("/scratch/aeonsim/LTR-retros/currentDepths.txt")))
 
-val data = new HashMap[String,HashMap[Int,Tuple5[Int,List[String],Int,Array[Int],Int]]]
+/* Chr -> Pos -> Tuple5[Obs,Carriers,Reads,Array[Int],SplitReads,Events]*/
+
+val data = new HashMap[String,HashMap[Int,Tuple6[Int,List[String],Int,Array[Int],Int,String]]]
+
+val curDepth = new HashMap[String,Double]
+while (depths.ready){
+val cline = depths.readLine.split("\t")
+curDepth += cline(0) -> cline(1).toDouble
+}
+depths.close
 
 /* HashMap[Proband -> (Sire, Dam, List[Children])]*/
 
@@ -63,7 +72,7 @@ def pedEventType (posCarriers: List[String]): String = {
 	var fullped, partped, denovo, junk = 0
 	for (individual <- posCarriers){
 	/* if core family member */
-		if (families.contains(individual)){
+		if (families.contains(individual) && curDepth.contains(individual) && curDepth(individual) >= 15){
 			val cfam = families(individual)
 			if (posCarriers.contains(cfam._1) || posCarriers.contains(cfam._1)){
 				var kids = 0
@@ -76,7 +85,7 @@ def pedEventType (posCarriers: List[String]): String = {
 			} else {
 			/* Not in Parents */
 				var kids = 0
-				for (kid <- cfam._3) if (posCarriers.contains(kid)) kids += 1
+				for (kid <- cfam._3) if (posCarriers.contains(kid) && curDepth.contains(kid) && curDepth(kid) >= 15) kids += 1
 				if ( kids >= 1 ){
 					denovo += 1
 				} else {
@@ -111,6 +120,7 @@ try {
 /* Loop through all lines */
 
 	while (cF.ready && cR.ready){
+		var events = ""
 		val cfL = cF.readLine.split("\t")
 		val crL = cR.readLine.split("\t")
 		val csfL = sF.readLine.split("\t")
@@ -122,6 +132,8 @@ try {
 			val fKey = s"${cfL(0)}:${cfL(1)}-${cfL(2)}" 
 			val rKey = s"${crL(0)}:${crL(1)}-${crL(2)}" 
 
+			if(cfL(5).size >= 1) events = events + "," cfL(5)
+			
 			if (rKey == fKey){
 
 				if (cfL(3).toInt >= 1 || crL(3).toInt >= 1 || csfL(3).toInt >= 1 || csrL(3).toInt >= 1 ) {
@@ -139,8 +151,8 @@ try {
 					
 	/* Calc number of Split Reads */
 	
-					val splitReads = csfL(3).toInt + csrL(3).toInt
-					val notPP = cfL(3).toInt + crL(3).toInt
+					val splitReads = if (csfL(3).toInt >= 2 || csrL(3).toInt >= 2) csfL(3).toInt + csrL(3).toInt else 0
+					val notPP = if (cfL(3).toInt >= 2 || crL(3).toInt >= 2) cfL(3).toInt + crL(3).toInt else 0
 
 	/*	IF Chromosome is present check for Pos else add Chrom */
 
@@ -151,15 +163,15 @@ try {
 						if (data(cfL(0)).contains(cfL(2).toInt)) {
 						/* Chr -> Pos -> Tuple5[Obs,Carriers,Reads,Array[Int],SplitReads]*/
 
-							data(cfL(0))(cfL(2).toInt) = (data(cfL(0))(cfL(2).toInt)._1 + 1, fID :: data(cfL(0))(cfL(2).toInt)._2,notPP + data(cfL(0))(cfL(2).toInt)._3,updatePat(RepMatePat),splitReads + data(cfL(0))(cfL(2).toInt)._5)
+							data(cfL(0))(cfL(2).toInt) = (data(cfL(0))(cfL(2).toInt)._1 + 1, fID :: data(cfL(0))(cfL(2).toInt)._2,notPP + data(cfL(0))(cfL(2).toInt)._3,updatePat(RepMatePat),splitReads + data(cfL(0))(cfL(2).toInt)._5,events)
 							
 						} else {
-							data(cfL(0)) += cfL(2).toInt -> (1 , fID :: Nil,notPP,RepMatePat,splitReads)
+							data(cfL(0)) += cfL(2).toInt -> (1 , fID :: Nil,notPP,RepMatePat,splitReads,events)
 						}
 
 					} else {
 
-						data += cfL(0) -> HashMap( cfL(1).toInt -> (1, fID :: Nil,notPP,RepMatePat,splitReads))
+						data += cfL(0) -> HashMap( cfL(1).toInt -> (1, fID :: Nil,notPP,RepMatePat,splitReads,events))
 
 					}
 				}
@@ -189,7 +201,7 @@ case e: Exception => System.err.println(e + " " + F.toString)
 val analysis = new BufferedWriter(new FileWriter(new File("Analysis.tab")))
 val chromOrder = data.keys.filter(s => ! List("chrX","chrM").contains(s)).toList.sortWith(_.slice(3,7).toInt < _.slice(3,7).toInt) ::: List("chrX")
 
-analysis.write(s"CHROM\tSTART\tEND\tPOP%\tnPP_READS\tsplit_READS\tNUM-CARRIERS\tLTR_R_++,+-,-+,--\tFullPed:PartPED:Denovo:Junk\tCARRIERS\n")
+analysis.write(s"CHROM\tSTART\tEND\tPOP%\tnPP_READS\tsplit_READS\tNUM-CARRIERS\tLTR_R_++,+-,-+,--\tFullPed:PartPED:Denovo:Junk\tTypes\tCARRIERS\n")
 
 for (chr <- chromOrder){
 	val tmpDataOrder = data(chr).keys.toArray.sorted
@@ -201,7 +213,7 @@ for (chr <- chromOrder){
 		val tmp = data(chr)(pos)
 	//	if(tmp._3 >= 5){
 			analysis.write(s"${chr}\t${pos - 1000}\t${pos}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
-			analysis.write(s"\t${tmp._4(0)}:${tmp._4(1)}:${tmp._4(2)}:${tmp._4(3)}\t" + pedEventType(tmp._2))
+			analysis.write(s"\t${tmp._4(0)}:${tmp._4(1)}:${tmp._4(2)}:${tmp._4(3)}\t" + pedEventType(tmp._2),tmp._6)
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")
 	//	}

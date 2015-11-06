@@ -7,6 +7,7 @@ import htsjdk.samtools.SAMRecord
 import java.io.File
 import java.io._
 import scala.collection.mutable.HashMap
+import scala.collection.mutable.HashSet
 
 object findMobileElements{
 
@@ -22,18 +23,18 @@ val Chroms = Array(("chr1",158337067),("chr2",137060424),("chr3",121430405),("ch
 val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 var alignments = input.queryAlignmentStart(Chroms(0)._1,1)
 val outFactory = new htsjdk.samtools.SAMFileWriterFactory
-val output = outFactory.makeSAMWriter(input.getFileHeader,true,new File(s"${args(0)}.notPP.sec.sam"))
+val output = outFactory.makeSAMOrBAMWriter(input.getFileHeader,true,new File(s"${args(0)}.notPP.sec.bam"))
 
 val repeats = new BufferedReader(new FileReader(new File(args(2))))
 
-val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.fwd.bedgraph")))
-val outREV = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.rev.bedgraph")))
-val outRSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.rev.bedgraph")))
-val outFSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.fwd.bedgraph")))
+val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.bedgraph")))
+//val outREV = new BufferedWriter(new FileWriter(new File(s"${args(0)}.notPP.rev.bedgraph")))
+//val outRSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.rev.bedgraph")))
+val outFSPL = new BufferedWriter(new FileWriter(new File(s"${args(0)}.split.bedgraph")))
 
 outFWD.write("track type=bedGraph\n")
-outREV.write("track type=bedGraph\n")
-outRSPL.write("track type=bedGraph\n")
+//outREV.write("track type=bedGraph\n")
+//outRSPL.write("track type=bedGraph\n")
 outFSPL.write("track type=bedGraph\n")
 
 input.close
@@ -58,13 +59,13 @@ repList = Nil
 prevChrom = ""
 repeats.close
 
-def isLTR (pos: Int, curSearch: Array[Tuple6[Int,Int,String,String,String,String]]) : Tuple2[Boolean,String] = {
+def isLTR (pos: Int, curSearch: Array[Tuple6[Int,Int,String,String,String,String]]) : Tuple3[Boolean,String,String] = {
 	val half = scala.math.floor(curSearch.length/2).toInt
-	if (curSearch.length == 0) {(false,"")} else {
+	if (curSearch.length == 0) {(false,"","")} else {
 		if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-			(true,curSearch(half)._6)
+			(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}")
 		} else {
-			if (curSearch.length <= 1) (false,"") else {
+			if (curSearch.length <= 1) (false,"","") else {
 				if (curSearch(half)._1 > pos) isLTR(pos,curSearch.slice(0,half)) else isLTR(pos,curSearch.slice(half + 1,curSearch.length))
 			}
 		}
@@ -83,6 +84,12 @@ for (chrs <- Chroms){
 	var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 	val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 	var alignments = input.query(chrs._1,1,200000000,true)
+	var typeEvent = new HashSet[String]
+
+	var fwdP, revP, fwdS, revS = 0
+	var splitEnd : List[Int] = Nil
+	var candidateWindowStart, candidateWindowEnd = 0
+	var windowBoo = false
 
 	while (alignments.hasNext){
 		val tmp = alignments.next
@@ -91,14 +98,16 @@ for (chrs <- Chroms){
 		//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
 		
 		if (tmp.getAlignmentStart >= end){
-			outFWD.write(chrs._1 + "\t" + start + "\t" + end + "\t" + fwdCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-			outREV.write(chrs._1 + "\t" + start + "\t" + end + "\t" + revCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-			outFSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splFCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-			outRSPL.write(chrs._1 + "\t" + start + "\t" + end + "\t" + splRCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+			val curEvent = if (typeEvent.size >= 1) typeEvent.reduceLeft(_ + "," + _) else ""
+			outFWD.write(s"${chrs._1}\t${start}\t${end}\t${fwdCount+revCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${fwdCount}\t${revCount}\t${curEvent}\n")
+			outFSPL.write(s"${chrs._1}\t${start}\t${end}\t${splFCount+splRCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${splFCount}\t${splRCount}\t${curEvent}\n")
+			//outREV.write(s"${chrs._1}\t${start}\t${end}\t${revCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")		
+			//outRSPL.write(s"${chrs._1}\t${start}\t${end}\t${splRCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")
 
 			
-			start = end
-			end += 1000
+			start = start + 500
+			end += 500
+			typeEvent = new HashSet[String]
 			fwdCount = 0
 			revCount = 0
 			splRCount = 0
@@ -109,7 +118,55 @@ for (chrs <- Chroms){
 			LTRnRp = 0
 			LTRnRn = 0
 		}
-		
+
+		/* PRoper window identification */
+		if (repeatsChrom.contains(tmp.getReferenceName) && repeatsChrom.contains(tmp.getMateReferenceName)){
+
+		if (windowBoo == false && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60 && tmp.getReadNegativeStrandFlag == false){
+			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
+			val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
+				if (curMainLTRcheck._1 == false && curLTRcheck._1 == true){
+					windowBoo = true
+					fwdP += 1
+					candidateWindowStart = ((tmp.getAlignmentStart / 1000)*1000)
+					if ((candidateWindowStart - tmp.getAlignmentStart) > (candidateWindowStart + 500 - tmp.getAlignmentStart)) candidateWindowStart += 500
+					candidateWindowEnd = candidateWindowStart + 1000	
+				}
+		}
+
+		if (windowBoo == true && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60){
+			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
+			val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
+			if (curMainLTRcheck._1 == false && curLTRcheck._1 == true){
+				if (tmp.getStringAttribute("SA") == null){
+					if (tmp.getReadNegativeStrandFlag == false) fwdP += 1 else revP += 1 
+				} else {
+					if (tmp.getReadNegativeStrandFlag == false){
+						splitEnd = tmp.getAlignmentEnd :: splitEnd
+						fwdS += 1
+					} else{
+						splitEnd = tmp.getAlignmentStart :: splitEnd
+						revS += 1
+					}
+				}
+
+			}
+		}
+
+	}
+		if (tmp.getAlignmentStart >= candidateWindowEnd){
+			if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) println(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
+			candidateWindowEnd = 0
+			candidateWindowStart = 0
+			windowBoo = false
+			fwdP = 0
+			fwdS = 0
+			revS = 0
+			revP = 0
+			splitEnd = Nil
+		}
+
+
 		/* IF your an improper pair or a secondary/split read and your mates chromosome is in the repeats database*/
 		
 		if (tmp.getProperPairFlag == false && tmp.getStringAttribute("SA") != null){
@@ -122,9 +179,10 @@ for (chrs <- Chroms){
 			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
 			val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
 			
-			if (curLTRcheck._1 && tmp.getMateUnmappedFlag == false && tmp.getMappingQuality >= 60 && (tmp.getInferredInsertSize == 0 || scala.math.abs(tmp.getInferredInsertSize) >= 1000) && (if (args(3) == "true") {if (curMainLTRcheck._1 && curLTRcheck._1) false else true} else true)){
+			if (curLTRcheck._1 && tmp.getMateUnmappedFlag == false && tmp.getMappingQuality >= 60 && (tmp.getInferredInsertSize == 0 || scala.math.abs(tmp.getInferredInsertSize) >= 1000000) && (if (args(3) == "true") {if (curMainLTRcheck._1 && curLTRcheck._1) false else true} else true)){
 				allCount += 1
 				output.addAlignment(tmp)
+				if (curLTRcheck._1) typeEvent += curLTRcheck._3 else typeEvent += curMainLTRcheck._3
 				
 				/* If -ve stand record in rev if your improper paired or Split else record in the fwd */
 				
@@ -155,16 +213,19 @@ for (chrs <- Chroms){
 	}
 	
 	/* Once outside the the Chr prepare things for the next Chr, and write the ends, close the current input*/
-	
-	outFWD.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + fwdCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-	outREV.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + revCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-	outFSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splFCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
-	outRSPL.write(chrs._1 + "\t" + start + "\t" + chrs._2 + "\t" + splRCount + s"\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\n")
+	val curEvent = if (typeEvent.size >= 1) typeEvent.reduceLeft(_ + "," + _) else ""
+	outFWD.write(s"${chrs._1}\t${start}\t${end}\t${fwdCount+revCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${fwdCount}\t${revCount}\t${curEvent}\n")
+	outFSPL.write(s"${chrs._1}\t${start}\t${end}\t${splFCount+splRCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${splFCount}\t${splRCount}\t${curEvent}\n")
+	//outFWD.write(s"${chrs._1}\t${start}\t${end}\t${fwdCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")
+	//outREV.write(s"${chrs._1}\t${start}\t${end}\t${revCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")
+	//outFSPL.write(s"${chrs._1}\t${start}\t${end}\t${splFCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")
+	//outRSPL.write(s"${chrs._1}\t${start}\t${end}\t${splRCount}\t${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}\t${curEvent}\n")
 
 	fwdCount = 0
 	revCount = 0
 	splRCount = 0
 	splFCount = 0
+	typeEvent = new HashSet[String]
 	LTRpRn = 0
 	LTRpRp = 0
 	LTRnRp = 0
@@ -174,9 +235,9 @@ for (chrs <- Chroms){
 
 output.close
 outFWD.close
-outREV.close
+//outREV.close
 outFSPL.close
-outRSPL.close
+//outRSPL.close
 }
 
 }
