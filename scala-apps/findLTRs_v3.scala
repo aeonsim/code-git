@@ -120,9 +120,7 @@ def main (args: Array[String]){
 		}
 
 		while (alignments.hasNext){
-			val tmp = alignments.next
-			tmp.set
-			
+			val tmp = alignments.next			
 			/* If the next read is outside of the current region then write out region and advance */
 			//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
 			
