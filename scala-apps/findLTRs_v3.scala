@@ -102,7 +102,7 @@ def main (args: Array[String]){
 		}
 
 		def updateCounts(tmp: SAMRecord) : Unit = {
-			if (tmp.getAlignmentStart >= candidateWindowEnd || tmp.getAlignmentStart >= end){
+			if (tmp.getAlignmentStart >= candidateWindowEnd){
 				if (splitEnd.size == 2){
 					val inputBreak = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
 					var breakpoints = splitEnd.toArray.sorted
