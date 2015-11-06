@@ -99,6 +99,23 @@ for (chrs <- Chroms){
 			}
 	}
 
+		def updateCounts() : Unit = {
+		if (tmp.getAlignmentStart >= candidateWindowEnd){
+			if (splitEnd.size == 2){
+				var breakpoints = splitEnd.toArray.sorted
+				/* Extract reads covering break point if possible */
+				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
+				while (break.hasNext){
+					val tmpBreak = break.next
+					if ((breakpoints.contains(tmpBreak.getAlignmentStart) || breakpoints.contains(tmpBreak.getAlignmentEnd)) && tmpBreak.getProperPairFlag == true && tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S")) {
+						output.addAlignment(tmpBreak)
+						if (tmpBreak.getReadNegativeStrandFlag == false) fwdS += 1 else revS += 1
+					}
+				}
+			}
+
+	}
+
 	while (alignments.hasNext){
 		val tmp = alignments.next
 		
@@ -107,6 +124,7 @@ for (chrs <- Chroms){
 		
 		if (tmp.getAlignmentStart >= end){
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0) {
+				updateCounts()
 			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
@@ -197,21 +215,8 @@ for (chrs <- Chroms){
 
 
 
-		if (tmp.getAlignmentStart >= candidateWindowEnd){
-			if (splitEnd.size == 2){
-				var breakpoints = splitEnd.toArray.sorted
-				/* Extract reads covering break point if possible */
-				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
-				while (break.hasNext){
-					val tmpBreak = break.next
-					if ((breakpoints.contains(tmpBreak.getAlignmentStart) || breakpoints.contains(tmpBreak.getAlignmentEnd)) && tmpBreak.getProperPairFlag == true && tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S")) {
-						output.addAlignment(tmpBreak)
-						if (tmpBreak.getReadNegativeStrandFlag == false) fwdS += 1 else revS += 1
-					}
-				}
-			}
-
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
+			updateCounts()
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif < 10) {
 			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
 				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
