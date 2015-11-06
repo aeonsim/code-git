@@ -100,7 +100,7 @@ for (chrs <- Chroms){
 	}
 
 		def updateCounts(tmp: SAMRecord) : Unit = {
-		if (tmp.getAlignmentStart >= candidateWindowEnd || or tmp.getAlignmentStart >= end){
+		if (tmp.getAlignmentStart >= candidateWindowEnd || tmp.getAlignmentStart >= end){
 			if (splitEnd.size == 2){
 				var breakpoints = splitEnd.toArray.sorted
 				/* Extract reads covering break point if possible */
