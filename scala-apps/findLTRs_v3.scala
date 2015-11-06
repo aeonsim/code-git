@@ -99,7 +99,7 @@ for (chrs <- Chroms){
 			}
 	}
 
-		def updateCounts(tmp: SAMRecord) : Unit = {
+	def updateCounts(tmp: SAMRecord) : Unit = {
 		if (tmp.getAlignmentStart >= candidateWindowEnd || tmp.getAlignmentStart >= end){
 			if (splitEnd.size == 2){
 				var breakpoints = splitEnd.toArray.sorted
@@ -113,7 +113,7 @@ for (chrs <- Chroms){
 					}
 				}
 			}
-
+		}
 	}
 
 	while (alignments.hasNext){
@@ -122,15 +122,14 @@ for (chrs <- Chroms){
 		/* If the next read is outside of the current region then write out region and advance */
 		//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
 		
-		if (tmp.getAlignmentStart >= end){
+		if (tmp.getAlignmentStart >= candidateWindowEnd){
+			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0) {
 				updateCounts(tmp)
-			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
-				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
 				outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\n")
 				outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
-			}
+			} // end of write
 
 			candidateWindowEnd = 0
 			candidateWindowStart = 0
@@ -140,26 +139,16 @@ for (chrs <- Chroms){
 			revS = 0
 			revP = 0
 			splitEnd = new HashSet[Int]
-
-			
-			start = start + 500
-			end += 500
 			typeEvent = new HashSet[String]
-			fwdCount = 0
-			revCount = 0
-			splRCount = 0
-			splFCount = 0
-			allCount =  0
 			LTRpRn = 0
 			LTRpRp = 0
 			LTRnRp = 0
 			LTRnRn = 0
-		}
+		} // end of window work
 
 		/* PRoper window identification */
 		if (repeatsChrom.contains(tmp.getReferenceName) && repeatsChrom.contains(tmp.getMateReferenceName)){
 
-			//if (windowBoo == false && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60 && tmp.getReadNegativeStrandFlag == false){
 			if (windowBoo == false && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60 && tmp.getReadNegativeStrandFlag == false){
 				val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
 				val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
@@ -173,9 +162,9 @@ for (chrs <- Chroms){
 						candidateWindowEnd = candidateWindowStart + 1500
 						//println(candidateWindowStart + " " + candidateWindowEnd)	
 					}
-			}
+			}// end of window creation
 
-		if (windowBoo == true && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60){
+			if (windowBoo == true && tmp.getProperPairFlag == false && tmp.getMappingQuality == 60){
 			val curLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
 			val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
 				if (curMainLTRcheck._1 == false && curLTRcheck._1 == true){ // Is not in LTR mate is
@@ -197,65 +186,27 @@ for (chrs <- Chroms){
 							} // end sup is neg read
 					} // end Sup Else
 				}//is not LTR mate is LTR
-		}//appropriate read
+			}//appropriate read
 
+			if (windowBoo == true) output.addAlignment(tmp)
 
-
-			if (windowBoo == true) {
-				output.addAlignment(tmp)
-				/* Identify Split Reads that are properly paired? Maybe difficult don't map to LTR elements
-				*	Could extract alignment block over the duplication site and look for split reads around that?
-				*
-				*/
-				//if ((fwdS + fwdP) >= 1)
-			}
-
-		}
-
-
-
-
-			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			updateCounts(tmp)
-			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif < 10) {
-			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
-				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
-				outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\n")
-				outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
-			}
-
-
-
-			candidateWindowEnd = 0
-			candidateWindowStart = 0
-			windowBoo = false
-			fwdP = 0
-			fwdS = 0
-			revS = 0
-			revP = 0
-			LTRpRn = 0
-			LTRpRp = 0
-			LTRnRn = 0
-			LTRnRp = 0
-			splitEnd = new HashSet[Int]
-		}
-	}
-	/* Once outside the the Chr prepare things for the next Chr, and write the ends, close the current input*/
-	fwdCount = 0
-	revCount = 0
-	splRCount = 0
-	splFCount = 0
+		} // end of good chromosomes
+	} // end of while for chromosome
 	typeEvent = new HashSet[String]
 	LTRpRn = 0
 	LTRpRp = 0
 	LTRnRp = 0
 	LTRnRn = 0
 	input.close
-}
+
+	} // end of loop for a chrom
+
+	/* Once outside the the Chr prepare things for the next Chr, and write the ends, close the current input*/
+}// for loop chroms
 
 output.close
 outFWD.close
 outEvent.close
-}
+} // main
 
-}
+} //object
