@@ -99,8 +99,8 @@ for (chrs <- Chroms){
 			}
 	}
 
-		def updateCounts() : Unit = {
-		if (tmp.getAlignmentStart >= candidateWindowEnd){
+		def updateCounts(tmp: SAMRecord) : Unit = {
+		if (tmp.getAlignmentStart >= candidateWindowEnd || or tmp.getAlignmentStart >= end){
 			if (splitEnd.size == 2){
 				var breakpoints = splitEnd.toArray.sorted
 				/* Extract reads covering break point if possible */
@@ -124,7 +124,7 @@ for (chrs <- Chroms){
 		
 		if (tmp.getAlignmentStart >= end){
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0) {
-				updateCounts()
+				updateCounts(tmp)
 			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
@@ -216,7 +216,7 @@ for (chrs <- Chroms){
 
 
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			updateCounts()
+			updateCounts(tmp)
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif < 10) {
 			//if (fwdP > 0 && fwdS > 0 && revP > 0 && revS > 0) {
 				val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
