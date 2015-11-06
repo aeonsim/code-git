@@ -2,6 +2,7 @@ import htsjdk.samtools.SamReaderFactory
 import htsjdk.samtools.SAMFileWriter
 import htsjdk.samtools.SAMFileWriterFactory
 import htsjdk.samtools.DefaultSAMRecordFactory
+import htsjdk.samtools.ValidationStringency
 import htsjdk.samtools.SamReader
 import htsjdk.samtools.SAMRecord
 import java.io.File
@@ -21,10 +22,10 @@ def main (args: Array[String]){
 
 	val Chroms = Array(("chr1",158337067),("chr2",137060424),("chr3",121430405),("chr4",120829699),("chr5",121191424),("chr6",119458736),("chr7",112638659),("chr8",113384836),("chr9",105708250),("chr10",104305016),("chr11",107310763),("chr12",91163125),("chr13",84240350),("chr14",84648390),("chr15",85296676),("chr16",81724687),("chr17",75158596),("chr18",66004023),("chr19",64057457),("chr20",72042655),("chr21",71599096),("chr22",61435874),("chr23",52530062),("chr24",62714930),("chr25",42904170),("chr26",51681464),("chr27",45407902),("chr28",46312546),("chr29",51505224),("chrX",148823899))
 
-	val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
+	val input = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
 	//var alignments = input.queryAlignmentStart(Chroms(0)._1,1)
 
-	val inputBreak = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
+	val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
 	//var alignmentsBreak = inputBreak.queryAlignmentStart(Chroms(0)._1,1)
 
 	val outFactory = new htsjdk.samtools.SAMFileWriterFactory
@@ -84,7 +85,7 @@ def main (args: Array[String]){
 	for (chrs <- Chroms){
 		println(chrs._1)
 		var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
-		val input = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
+		val input = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
 		var alignments = input.query(chrs._1,1,200000000,true)
 		var typeEvent = new HashSet[String]
 
@@ -104,7 +105,7 @@ def main (args: Array[String]){
 		def updateCounts(tmp: SAMRecord) : Unit = {
 			if (tmp.getAlignmentStart >= candidateWindowEnd){
 				if (splitEnd.size == 2){
-					val inputBreak = htsjdk.samtools.SamReaderFactory.make.open(new File(args(1)))
+					val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
 					var breakpoints = splitEnd.toArray.sorted
 					/* Extract reads covering break point if possible */
 					val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
@@ -120,6 +121,7 @@ def main (args: Array[String]){
 
 		while (alignments.hasNext){
 			val tmp = alignments.next
+			tmp.set
 			
 			/* If the next read is outside of the current region then write out region and advance */
 			//if (tmp.getAlignmentStart >= end && ( fwdCount >= 1 || revCount >= 1)){
