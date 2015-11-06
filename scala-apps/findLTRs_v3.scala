@@ -74,6 +74,7 @@ def main (args: Array[String]){
 				}
 			}
 		}
+	} //end is LTR
 	
 
 //chr1    387557  387760
@@ -212,4 +213,4 @@ def main (args: Array[String]){
 
 } // main
 
-} //object
+//} //object
