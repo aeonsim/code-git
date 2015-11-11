@@ -66,7 +66,7 @@ object findMobileElements{
 					(false,"","")
 			} else {
 				if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}")
+					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}-${curSearch(half)._6}")
 					} else {
 						if (curSearch.length <= 1) {
 							(false,"","")
@@ -85,7 +85,7 @@ object findMobileElements{
 		print(" " + chrs._1)
 		val input = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
 		var alignments = input.query(chrs._1,1,200000000,true)
-		var typeEvent = new HashSet[String]
+		var typeEvent = new HashMap[String,Tuple2[Int,Int]]
 
 		var updated = false
 		var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
@@ -102,10 +102,10 @@ object findMobileElements{
 				}
 		}
 
-		def updateCounts() : Unit = {
-			if (splitEnd.size == 2){
+		def updateCounts(breaks: HashSet[Int]) : Unit = {
+			if (breaks.size == 2){
 				val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
-				var breakpoints = splitEnd.toArray.sorted
+				var breakpoints = breaks.toArray.sorted
 				/* Extract reads covering break point if possible */
 				//println("Breakpoint refinement")
 				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
@@ -128,10 +128,13 @@ object findMobileElements{
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 10) {
 					//println(s"Criteria for print ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
-					updateCounts()
+					val targets = splitEnd.toArray.sorted
+					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					//println(s"PASSED ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
-					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\n")
+					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
+					typeEvent.foreach(s => outEvent.write(s.toString))
+					outEvent.write("\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 				} // end of write
 
@@ -143,7 +146,7 @@ object findMobileElements{
 				revS = 0
 				revP = 0
 				splitEnd = new HashSet[Int]
-				typeEvent = new HashSet[String]
+				typeEvent = new HashMap[String,Tuple2[Int,Int]]
 				LTRpRn = 0
 				LTRpRp = 0
 				LTRnRp = 0
@@ -167,6 +170,7 @@ object findMobileElements{
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
 								fwdP += 1
+								typeEvent += curMateLTRcheck._3 -> (1,0)
 								candidateWindowStart = ((tmp.getAlignmentStart / 1000)*1000)
 								// 10300 = /1k*1k = 10,000 - 10300 = -300 vs 200 convert to absolute
 								if (abs(candidateWindowStart - tmp.getAlignmentStart) >= abs((candidateWindowStart + 500) - tmp.getAlignmentStart)) candidateWindowStart += 500
@@ -179,19 +183,25 @@ object findMobileElements{
 							//output.addAlignment(tmp)
 							if (tmp.getStringAttribute("SA") == null ) { //|| tmp.getSupplementaryAlignmentFlag == false){ Not supllemantary alignment
 								if (tmp.getReadNegativeStrandFlag == false){ // Not sup and on +ve strand
+									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
 									directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
 									fwdP += 1
 								} else {
+									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1, typeEvent(curMateLTRcheck._3)._2 + 1) else typeEvent += curMateLTRcheck._3 -> (0,1)
 									directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
 									revP += 1
 								}//end fwd read npp
 							} else { // IS Sup Alignment/splitRead
 								//println(" is getSupplementaryAlignmentFlag")
 								if (tmp.getReadNegativeStrandFlag == false){
+										if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
 										fwdS += 1
+										directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
 										splitEnd += tmp.getAlignmentEnd
 									} else {
+										if (typeEvent.contains(curMateLTRcheck._3))typeEvent(curMateLTRcheck._3) =  (typeEvent(curMateLTRcheck._3)._1, typeEvent(curMateLTRcheck._3)._2 + 1) else typeEvent += curMateLTRcheck._3 -> (0,1)
 										revS += 1
+										directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
 										splitEnd += tmp.getAlignmentStart
 									} // end sup is neg read
 							} // end Sup Else
@@ -207,9 +217,12 @@ object findMobileElements{
 		if (windowBoo){
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 10) {
-					updateCounts()
+					val targets = splitEnd.toArray.sorted
+					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
-					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\n")
+					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
+					typeEvent.foreach(s => outEvent.write(s.toString))
+					outEvent.write("\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 			}
 		}
