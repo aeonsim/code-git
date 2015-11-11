@@ -66,7 +66,7 @@ object findMobileElements{
 					(false,"","")
 			} else {
 				if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}-${curSearch(half)._6}")
+					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}${curSearch(half)._6}")
 					} else {
 						if (curSearch.length <= 1) {
 							(false,"","")
@@ -126,14 +126,14 @@ object findMobileElements{
 			/* If the next read is outside of the current region then write out region and advance */
 			if (candidateWindowEnd != 0 && tmp.getAlignmentStart >= candidateWindowEnd){
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-				if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 10) {
+				if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 20) {
 					//println(s"Criteria for print ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					val targets = splitEnd.toArray.sorted
 					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					//println(s"PASSED ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
-					typeEvent.foreach(s => outEvent.write(s.toString))
+					typeEvent.foreach(s => outEvent.write(s.toString + ":"))
 					outEvent.write("\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 				} // end of write
@@ -170,6 +170,7 @@ object findMobileElements{
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
 								fwdP += 1
+								directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
 								typeEvent += curMateLTRcheck._3 -> (1,0)
 								candidateWindowStart = ((tmp.getAlignmentStart / 1000)*1000)
 								// 10300 = /1k*1k = 10,000 - 10300 = -300 vs 200 convert to absolute
@@ -210,18 +211,18 @@ object findMobileElements{
 
 				} // end good read mapping and improperly paired
 
-				if (windowBoo == true) output.addAlignment(tmp)
+				//if (windowBoo == true) output.addAlignment(tmp)
 			}// End of Good Chromosomes check
 		} //End of While Alignments
 		/* Have completed a chromosome scan now need to clean up*/
 		if (windowBoo){
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 10) {
+			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 20) {
 					val targets = splitEnd.toArray.sorted
 					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
-					typeEvent.foreach(s => outEvent.write(s.toString))
+					typeEvent.foreach(s => outEvent.write(s.toString + ":"))
 					outEvent.write("\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 			}
