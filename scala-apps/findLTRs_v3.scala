@@ -66,7 +66,7 @@ object findMobileElements{
 					(false,"","")
 			} else {
 				if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}}")
+					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}")
 					} else {
 						if (curSearch.length <= 1) {
 							(false,"","")
