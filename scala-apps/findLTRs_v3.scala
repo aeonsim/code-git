@@ -66,7 +66,7 @@ object findMobileElements{
 					(false,"","")
 			} else {
 				if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
-					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}${curSearch(half)._6}")
+					(true,curSearch(half)._6,s"${curSearch(half)._3}-${curSearch(half)._5}}")
 					} else {
 						if (curSearch.length <= 1) {
 							(false,"","")
@@ -88,17 +88,34 @@ object findMobileElements{
 		var typeEvent = new HashMap[String,Tuple2[Int,Int]]
 
 		var updated = false
-		var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
+		//var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
+		var RpMp, RpMn, RnMp, RnMn = 0
 		var fwdP, revP, fwdS, revS = 0
 		var splitEnd = new HashSet[Int]
 		var candidateWindowStart, candidateWindowEnd = 0
 		var windowBoo = false
 
-		def directionLTR (LTR: String, mateNeg: Boolean) : Unit = {
-			if (LTR == "+"){
-					if (mateNeg) LTRpRn += 1 else LTRpRp += 1 
+		def directionLTR (LTR: String, uniqueNeg: Boolean, mateNeg: Boolean) : Unit = {
+			if (uniqueNeg){ 
+				// Negative Strand Read
+					if (LTR == "+"){
+						//LTR is on + strand	
+						if (mateNeg) RnMn += 1 else RnMp += 1 
+						// Is the mate negative or positive
+					} else {
+						// LTR is on - strand
+						if (mateNeg) RnMp += 1 else RnMn += 1
+					}
 				} else {
-					if (mateNeg) LTRnRn += 1 else LTRnRp += 1
+					// Positive Strand Read
+					if (LTR == "+"){
+						//LTR is on + strand	
+						if (mateNeg) RpMn += 1 else RpMp += 1 
+						// Is the mate negative or positive
+					} else {
+						// LTR is on - strand
+						if (mateNeg) RpMp += 1 else RpMn += 1
+					}
 				}
 		}
 
@@ -131,7 +148,7 @@ object findMobileElements{
 					val targets = splitEnd.toArray.sorted
 					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					//println(s"PASSED ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
-					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
+					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
 					outEvent.write("\n")
@@ -147,10 +164,10 @@ object findMobileElements{
 				revP = 0
 				splitEnd = new HashSet[Int]
 				typeEvent = new HashMap[String,Tuple2[Int,Int]]
-				LTRpRn = 0
-				LTRpRp = 0
-				LTRnRp = 0
-				LTRnRn = 0
+				RpMn = 0
+				RpMp = 0
+				RnMp = 0
+				RnMn = 0
 			} // end of window work
 
 
@@ -170,7 +187,7 @@ object findMobileElements{
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
 								fwdP += 1
-								directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
+								directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 								typeEvent += curMateLTRcheck._3 -> (1,0)
 								candidateWindowStart = ((tmp.getAlignmentStart / 1000)*1000)
 								// 10300 = /1k*1k = 10,000 - 10300 = -300 vs 200 convert to absolute
@@ -185,11 +202,11 @@ object findMobileElements{
 							if (tmp.getStringAttribute("SA") == null ) { //|| tmp.getSupplementaryAlignmentFlag == false){ Not supllemantary alignment
 								if (tmp.getReadNegativeStrandFlag == false){ // Not sup and on +ve strand
 									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
-									directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
+									directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 									fwdP += 1
 								} else {
 									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1, typeEvent(curMateLTRcheck._3)._2 + 1) else typeEvent += curMateLTRcheck._3 -> (0,1)
-									directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
+									directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 									revP += 1
 								}//end fwd read npp
 							} else { // IS Sup Alignment/splitRead
@@ -197,12 +214,12 @@ object findMobileElements{
 								if (tmp.getReadNegativeStrandFlag == false){
 										if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
 										fwdS += 1
-										directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
+										directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 										splitEnd += tmp.getAlignmentEnd
 									} else {
 										if (typeEvent.contains(curMateLTRcheck._3))typeEvent(curMateLTRcheck._3) =  (typeEvent(curMateLTRcheck._3)._1, typeEvent(curMateLTRcheck._3)._2 + 1) else typeEvent += curMateLTRcheck._3 -> (0,1)
 										revS += 1
-										directionLTR(curMateLTRcheck._2,tmp.getMateNegativeStrandFlag)
+										directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 										splitEnd += tmp.getAlignmentStart
 									} // end sup is neg read
 							} // end Sup Else
@@ -220,7 +237,7 @@ object findMobileElements{
 			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 20) {
 					val targets = splitEnd.toArray.sorted
 					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
-					val ornt = s"${LTRpRp}:${LTRpRn}:${LTRnRp}:${LTRnRn}"
+					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
 					outEvent.write("\n")
