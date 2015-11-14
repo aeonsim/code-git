@@ -94,6 +94,7 @@ object findMobileElements{
 		var splitEnd = new HashSet[Int]
 		var candidateWindowStart, candidateWindowEnd = 0
 		var windowBoo = false
+		var lastfwd = false
 
 		def directionLTR (LTR: String, uniqueNeg: Boolean, mateNeg: Boolean) : Unit = {
 			if (uniqueNeg){ 
@@ -204,6 +205,7 @@ object findMobileElements{
 				RnMn = 0
 				firstEnd = 0
 				lastStart = 0
+				lastfwd = false
 			} // end of window work
 
 
@@ -224,6 +226,7 @@ object findMobileElements{
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
 								fwdP += 1
+								lastfwd = true
 								directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 								typeEvent += curMateLTRcheck._3 -> (1,0)
 								candidateWindowStart = ((tmp.getAlignmentStart / 1000)*1000)
@@ -239,10 +242,15 @@ object findMobileElements{
 							lastStart = tmp.getAlignmentStart
 							if (tmp.getStringAttribute("SA") == null ) { //|| tmp.getSupplementaryAlignmentFlag == false){ Not supllemantary alignment
 								if (tmp.getReadNegativeStrandFlag == false){ // Not sup and on +ve strand
+									if (lastfwd) firstEnd = tmp.getAlignmentEnd
 									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
 									directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 									fwdP += 1
 								} else {
+									if (lastfwd) {
+										lastStart = tmp.getAlignmentStart
+										lastfwd = false
+									}
 									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1, typeEvent(curMateLTRcheck._3)._2 + 1) else typeEvent += curMateLTRcheck._3 -> (0,1)
 									directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
 									revP += 1
