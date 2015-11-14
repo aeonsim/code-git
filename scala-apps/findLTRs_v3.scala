@@ -174,9 +174,9 @@ object findMobileElements{
 
 			/* If the next read is outside of the current region then write out region and advance */
 			if (candidateWindowEnd != 0 && tmp.getAlignmentStart >= candidateWindowEnd){
-				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				val targets = splitEnd.toArray.sorted
-				if (splitEnd.size == 2) findOthers(splitEnd) else if (splitEnd.size == 1) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+				if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 				if (fwdP > 0 && revP > 0 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//println(s"Criteria for print ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					
@@ -271,9 +271,9 @@ object findMobileElements{
 		} //End of While Alignments
 		/* Have completed a chromosome scan now need to clean up*/
 		if (windowBoo){
-			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 			val targets = splitEnd.toArray.sorted
-			if (splitEnd.size == 2) findOthers(splitEnd) else if (splitEnd.size == 1) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+			if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
 			if (fwdP > 0 && revP > 0 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//val targets = splitEnd.toArray.sorted
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
