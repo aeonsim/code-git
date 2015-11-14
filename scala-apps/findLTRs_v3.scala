@@ -156,8 +156,8 @@ object findMobileElements{
 								revS += 1
 							}
 						} else {
-							val curMateLTRcheck = isLTR(tmpBreak.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
-							val curMainLTRcheck = isLTR(tmpBreak.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
+							val curMateLTRcheck = isLTR(tmpBreak.getMateAlignmentStart,repeatsChrom(tmpBreak.getMateReferenceName))
+							val curMainLTRcheck = isLTR(tmpBreak.getAlignmentStart,repeatsChrom(tmpBreak.getReferenceName))
 							if (curMainLTRcheck._1 == false && curMateLTRcheck._1 == true){							
 								if (tmpBreak.getReadNegativeStrandFlag == false) {
 									splitEnd += tmpBreak.getAlignmentEnd
