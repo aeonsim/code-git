@@ -145,7 +145,7 @@ object findMobileElements{
 				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
 				while (break.hasNext){
 					val tmpBreak = break.next
-					if (tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S") && tmp.getStringAttribute("SA") == null) {
+					if (tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S") && tmpBreak.getStringAttribute("SA") == null) {
 						if (tmpBreak.getProperPairFlag == true){
 							if (tmpBreak.getReadNegativeStrandFlag == false) {
 								splitEnd += tmpBreak.getAlignmentStart
