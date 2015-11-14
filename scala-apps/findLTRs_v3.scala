@@ -90,7 +90,7 @@ object findMobileElements{
 		var updated = false
 		//var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 		var RpMp, RpMn, RnMp, RnMn = 0
-		var fwdP, revP, fwdS, revS = 0
+		var fwdP, revP, fwdS, revS, firstEnd, lastStart = 0
 		var splitEnd = new HashSet[Int]
 		var candidateWindowStart, candidateWindowEnd = 0
 		var windowBoo = false
@@ -136,6 +136,38 @@ object findMobileElements{
 		}
 
 
+
+		def findOthers(breaks: HashSet[Int]) : Unit = {
+				val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
+				var breakpoints = breaks.toArray.sorted
+				/* Extract reads covering break point if possible */
+				//println("Breakpoint refinement")
+				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
+				while (break.hasNext){
+					val tmpBreak = break.next
+					if (tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S") && tmp.getStringAttribute("SA") == null) {
+						if (tmpBreak.getProperPairFlag == true){
+							if (tmpBreak.getReadNegativeStrandFlag == false) {
+								splitEnd += tmpBreak.getAlignmentStart
+								fwdS += 1
+							} else {
+								splitEnd += tmpBreak.getAlignmentEnd
+								revS += 1
+							}
+						} else {
+							if (tmpBreak.getReadNegativeStrandFlag == false) {
+								splitEnd += tmpBreak.getAlignmentEnd
+								fwdS += 1
+							} else {
+								splitEnd += tmpBreak.getAlignmentStart
+								revS += 1
+							}
+						}
+					}
+				}
+		}
+
+
 		/* Process all alignments on a Chromosome */
 		while (alignments.hasNext){
 			val tmp = alignments.next		
@@ -143,10 +175,12 @@ object findMobileElements{
 			/* If the next read is outside of the current region then write out region and advance */
 			if (candidateWindowEnd != 0 && tmp.getAlignmentStart >= candidateWindowEnd){
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-				if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 20) {
+				val targets = splitEnd.toArray.sorted
+				if (splitEnd.size == 2) findOthers(splitEnd) else if (splitEnd.size == 1) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+				if (fwdP > 0 && revP > 0 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//println(s"Criteria for print ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
-					val targets = splitEnd.toArray.sorted
-					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
+					
+					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					//println(s"PASSED ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
@@ -168,6 +202,8 @@ object findMobileElements{
 				RpMp = 0
 				RnMp = 0
 				RnMn = 0
+				firstEnd = 0
+				lastStart = 0
 			} // end of window work
 
 
@@ -183,6 +219,7 @@ object findMobileElements{
 
 						if (windowBoo == false){
 							if (tmp.getReadNegativeStrandFlag == false){
+								firstEnd = tmp.getAlignmentEnd
 								//output.addAlignment(tmp)
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
@@ -199,6 +236,7 @@ object findMobileElements{
 						} else {
 							/* Window is True, improperly paired and good mapping quality */
 							//output.addAlignment(tmp)
+							lastStart = tmp.getAlignmentStart
 							if (tmp.getStringAttribute("SA") == null ) { //|| tmp.getSupplementaryAlignmentFlag == false){ Not supllemantary alignment
 								if (tmp.getReadNegativeStrandFlag == false){ // Not sup and on +ve strand
 									if (typeEvent.contains(curMateLTRcheck._3)) typeEvent(curMateLTRcheck._3) = (typeEvent(curMateLTRcheck._3)._1 + 1, typeEvent(curMateLTRcheck._3)._2) else typeEvent += curMateLTRcheck._3 -> (1,0)
@@ -234,9 +272,11 @@ object findMobileElements{
 		/* Have completed a chromosome scan now need to clean up*/
 		if (windowBoo){
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			if (fwdP > 0 && fwdS > 0 && (revP + revS) > 0 && splitDif <= 20) {
-					val targets = splitEnd.toArray.sorted
-					if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
+			val targets = splitEnd.toArray.sorted
+			if (splitEnd.size == 2) findOthers(splitEnd) else if (splitEnd.size == 1) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
+			if (fwdP > 0 && revP > 0 && (fwdS + revS) > 0 && splitDif <= 20) {
+					//val targets = splitEnd.toArray.sorted
+					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
