@@ -10,9 +10,10 @@ val fwd = org.apache.commons.io.FileUtils.listFiles(new File("."),Array("event.t
 
 val depths = new BufferedReader(new FileReader(new File("/scratch/aeonsim/LTR-retros/currentDepths.txt")))
 
-/* Chr -> Pos -> Tuple5[Obs,Carriers,ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int], Orination Array, Event HashMap, Breakpoints HashSet]*/
+/* Chr -> Pos -> Tuple5[Obs,Carriers,ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int], Orination Array, Event HashMap, Breakpoints HashSet, genes hashSet]*/
 
-val data = new HashMap[String,HashMap[Int,Tuple9[Int,List[String],Int,List[Int],Int,HashSet[Int],Array[Int],HashMap[String,Tuple2[Int,Int]],HashSet[Int]]]]
+val data = new HashMap[String,HashMap[Int,Tuple10[Int,List[String],Int,List[Int],Int,HashSet[Int],Array[Int],HashMap[String,Tuple2[Int,Int]],HashSet[Int],HashSet[String]]]]
+//val geneData = new HashMap[String,HashMap[Int,]]
 
 val curDepth = new HashMap[String,Double]
 while (depths.ready){
@@ -27,6 +28,56 @@ depths.close
 val families = new HashMap[String,Tuple3[String,String,List[String]]]
 
 val popIn = new BufferedReader(new FileReader(new File("/scratch/aeonsim/vcfs/ref-peds/Damona-Full-8Jan15.ped")))
+val annoIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Bos_taurus.UMD3.1.82.gtf")))
+
+//Chr -> Tuple5[start, end, class, name/id, strand]
+
+var anno = new HashMap[String,Array[Tuple5[Int,Int,String,String,String]]]
+var annoList : List[Tuple5[Int,Int,String,String,String]] = Nil
+		var prevChrom = ""
+		
+		while (annoIn.ready){
+			val tmp = annoIn.readLine.split("\t")
+			if (tmp(0).apply(0) != '#'){
+				val chr = "chr" + tmp(0).trim
+				if (tmp(2) == "transcript") {
+					val info = tmp(8).split(" ")
+					val name = if (info.contains("gene_name")) info(info.indexOf("gene_name") + 1 ) else info(info.indexOf("gene_id") + 1 )
+					if (prevChrom == chr){
+						annoList = (tmp(3).toInt,tmp(4).toInt, tmp(2), name, tmp(6)) :: annoList
+					} else {
+						anno += prevChrom -> annoList.reverse.toArray
+						annoList = (tmp(3).toInt,tmp(4).toInt, tmp(2), name, tmp(6)) :: Nil
+						prevChrom = chr
+					}
+				}
+			}
+		}//end while repeats
+		
+		anno += prevChrom -> annoList.reverse.toArray
+		annoList = Nil
+		prevChrom = ""
+		annoIn.close
+
+
+		def isEle (pos: Int, curSearch: Array[Tuple5[Int,Int,String,String,String]]) : Tuple3[Boolean,String,String] = {
+			val half = scala.math.floor(curSearch.length/2).toInt
+			if (curSearch.length == 0){
+					(false,"","")
+			} else {
+				if (curSearch(half)._1 <= pos && curSearch(half)._2 >= pos) {
+					(true,curSearch(half)._5,s"${curSearch(half)._3}-${curSearch(half)._4}")
+					} else {
+						if (curSearch.length <= 1) {
+							(false,"","")
+						} else {
+						if (curSearch(half)._1 > pos) isEle(pos,curSearch.slice(0,half)) else isEle(pos,curSearch.slice(half + 1,curSearch.length))
+					}
+				}
+			}
+		} //end isEle
+
+
 val pop = new HashMap[String,Array[String]]
 var workingPop = new HashSet[String]
 
@@ -72,11 +123,25 @@ if (pop.contains(indv._2(2)) && pop.contains(indv._2(3))){
 
 def addBreaks (breaks: HashSet[Int], newBreaks: String ): HashSet[Int] ={
 	val novoBreaks = newBreaks.substring(4,newBreaks.size -1).split(",").map(s => s.trim.toInt)
-	for ( k <- novoBreaks){
-		breaks += k
+	if (novoBreaks.size <= 2){
+		for ( k <- novoBreaks){
+			breaks += k
+		}
 	}
 	breaks
 }
+
+//def isEle (pos: Int, curSearch: Array[Tuple5[Int,Int,String,String,String]]) : Tuple3[Boolean,String,String]
+//addgenes(curGenesHash,breakpointsString,chrom)
+def addGenes (genes: HashSet[String], newPos: String, chr: String): HashSet[String] ={
+	val novoGenes = newPos.substring(4,newPos.size -1).split(",").map(s => s.trim.toInt)
+	for ( k <- novoGenes){
+		val tmp = isEle(k,anno(chr))
+		if (tmp._1) genes += tmp._3
+	}
+	genes
+}
+
 
 def pedEventType (posCarriers: List[String]): String = {
 	var fullped, partped, denovo, junk = 0
@@ -141,16 +206,17 @@ while (fwd.hasNext){
 		}
 		curData
 	}
+	
 
 	def updateEvents (info: String, curEvents: HashMap[String,Tuple2[Int,Int]]) : HashMap[String,Tuple2[Int,Int]] = {
 		/* evs are Event,FWD.int,REV.int */
 		var workingEvs = curEvents
-		for (evs <- info.split(":")){
+		for (evs <- info.substring(0,info.size -1).split(":")){
 			val cevs = evs.split(",")
 			if (workingEvs.contains(cevs(0))){
 				workingEvs(cevs(0)) = (cevs(1).toInt + workingEvs(cevs(0))._1,cevs(2).toInt + workingEvs(cevs(0))._2) 
 			} else {
-				workingEvs += cevs(0) -> (cevs(1).toInt,cevs(2).toInt)
+				if (cevs.size >= 3) workingEvs += cevs(0) -> (cevs(1).toInt,cevs(2).toInt)
 			}
 		}
 		workingEvs
@@ -164,7 +230,46 @@ while (fwd.hasNext){
 			val chrom = cEventLine(0).split(":").apply(0).trim
 
 			val start = cEventLine(0).split(":").apply(1).split("-").apply(0).toInt
-			val modStart = if (data.contains(chrom) && data(chrom).contains(start.toInt - 500) ) (start - 500) else if (data.contains(chrom) && data(chrom).contains(start.toInt + 500)) (start + 500) else start
+			var modStart = if (data.contains(chrom) && data(chrom).contains(start.toInt - 500) ) (start - 500) else if (data.contains(chrom) && data(chrom).contains(start.toInt + 500)) (start + 500) else if (data.contains(chrom) && data(chrom).contains(start.toInt - 1000) ) (start - 1000) else if (data.contains(chrom) && data(chrom).contains(start.toInt + 500) ) (start + 500) else start
+			/*val modStart : Int = if (data.contains(chrom) && data(chrom).contains(start)) {
+				start
+			} else {
+				if (data.contains(chrom)){
+					val breaks = cEventLine(5).trim.substring(4,cEventLine.size - 1).split(",").map(_.toInt)
+					if (data(chrom).contains(start - 500)){
+						start - 500
+					} else {
+						if (data(chrom).contains(start + 500)) {
+							start + 500
+						} else {
+							if (data(chrom).contains(start - 1000) && data(chrom)(start - 1000)._9.map(bp => breaks.contains(bp)).contains(true)){
+								//check if any of the breakpoints are the same as the previous if so return modified
+								start - 1000
+							} else {
+								if (data(chrom).contains(start + 1000) && data(chrom)(start + 1000)._9.map(bp => breaks.contains(bp)).contains(true)){
+								//check if any of the breakpoints are the same as the previous if so return modified
+									start + 1000
+								} else {
+									if (data(chrom).contains(start - 1500) && data(chrom)(start - 1500)._9.map(bp => breaks.contains(bp)).contains(true)){
+										//check if any of the breakpoints are the same as the previous if so return modified
+										start - 1500
+									} else {
+										if (data(chrom).contains(start + 1500) && data(chrom)(start + 1500)._9.map(bp => breaks.contains(bp)).contains(true)){
+											//check if any of the breakpoints are the same as the previous if so return modified
+											start + 1500
+										} else {
+											start
+										}
+									}
+								}
+							}
+							
+						}
+					}
+				} else start
+			}
+			*/
+			
 			val RepMatePat = cEventLine(7).split(":").map(_.toInt)
 			
 
@@ -173,14 +278,14 @@ while (fwd.hasNext){
 					/* Update the numbers */
 					val wk = data(chrom)(modStart)
 					val updatedEvents = updateEvents(cEventLine(8),data(chrom)(modStart)._8)
-					data(chrom)(modStart) = (wk._1 + 1, fID :: wk._2, wk._3 + cEventLine(1).toInt + cEventLine(2).toInt, NumOFBreakpoints :: wk._4, wk._5 + cEventLine(3).toInt + cEventLine(4).toInt, wk._6 + cEventLine(6).toInt, updatePat(RepMatePat,chrom,modStart),updatedEvents,addBreaks(wk._9,cEventLine(5)))
+					data(chrom)(modStart) = (wk._1 + 1, fID :: wk._2, wk._3 + cEventLine(1).toInt + cEventLine(2).toInt, NumOFBreakpoints :: wk._4, wk._5 + cEventLine(3).toInt + cEventLine(4).toInt, wk._6 + cEventLine(6).toInt, updatePat(RepMatePat,chrom,modStart),updatedEvents,addBreaks(wk._9,cEventLine(5)),addGenes(wk._10,cEventLine(5),chrom))
 				} else{
 					val updatedEvents = updateEvents(cEventLine(8),HashMap())
-					data(chrom) += modStart -> (1, List(fID), cEventLine(1).toInt + cEventLine(2).toInt, List(NumOFBreakpoints), cEventLine(3).toInt + cEventLine(4).toInt, HashSet(cEventLine(6).toInt),RepMatePat,updatedEvents,addBreaks(HashSet(),cEventLine(5)))
+					data(chrom) += modStart -> (1, List(fID), cEventLine(1).toInt + cEventLine(2).toInt, List(NumOFBreakpoints), cEventLine(3).toInt + cEventLine(4).toInt, HashSet(cEventLine(6).toInt),RepMatePat,updatedEvents,addBreaks(HashSet(),cEventLine(5)),addGenes(HashSet(),cEventLine(5),chrom))
 				}
 			} else {
 				val updatedEvents = updateEvents(cEventLine(8),HashMap())
-				data += chrom -> HashMap(modStart -> (1, List(fID), cEventLine(1).toInt + cEventLine(2).toInt, List(NumOFBreakpoints), cEventLine(3).toInt + cEventLine(4).toInt, HashSet(cEventLine(6).toInt),RepMatePat,updatedEvents,addBreaks(HashSet(),cEventLine(5))))
+				data += chrom -> HashMap(modStart -> (1, List(fID), cEventLine(1).toInt + cEventLine(2).toInt, List(NumOFBreakpoints), cEventLine(3).toInt + cEventLine(4).toInt, HashSet(cEventLine(6).toInt),RepMatePat,updatedEvents,addBreaks(HashSet(),cEventLine(5)),addGenes(HashSet(),cEventLine(5),chrom)))
 			}
 
 		}
@@ -199,7 +304,7 @@ case e: Exception => System.err.println(e + " " + F.toString)
 val analysis = new BufferedWriter(new FileWriter(new File("Analysis.tab")))
 val chromOrder = data.keys.filter(s => ! List("chrX","chrM").contains(s)).toList.sortWith(_.slice(3,7).toInt < _.slice(3,7).toInt) ::: List("chrX")
 
-analysis.write(s"CHROM:START-END\tPOP%\tnPP_READS\tsplit_READS\tNUM-CARRIERS\t3gen\tTrio\tDenovo\tJunk\tR+M+\tR+M-\tR-M+\tR-M-\tBreakpointDIF\tBreakpoints\tEvents\tCARRIERS\n")
+analysis.write(s"CHROM:START-END\tPOP%\tnPP_READS\tsplit_READS\tNUM-CARRIERS\t3gen\tTrio\tDenovo\tJunk\tR+M+\tR+M-\tR-M+\tR-M-\tBreakpointDIF\tBreakpoints\tGene\tEvents\tCARRIERS\n")
 
 for (chr <- chromOrder){
 	val tmpDataOrder = data(chr).keys.toArray.sorted
@@ -213,7 +318,7 @@ for (chr <- chromOrder){
 		/* Store is Chr -> Pos -> Tuple5[Obs,List[Carriers],ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int]]*/
 		if (tmp._4.contains(2)){  // require at least one individual to have both breakpoints
 			analysis.write(s"${chr}:${pos}-${pos + 1500}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
-			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${tmp._6}\t${tmp._9}\t")
+			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${tmp._6}\t${tmp._9}\t${tmp._10}\t")
 			tmp._8.foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")

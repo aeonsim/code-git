@@ -143,6 +143,7 @@ object findMobileElements{
 				var breakpoints = breaks.toArray.sorted
 				/* Extract reads covering break point if possible */
 				//println("Breakpoint refinement")
+
 				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
 				while (break.hasNext){
 					val tmpBreak = break.next
@@ -182,7 +183,7 @@ object findMobileElements{
 				val targets = splitEnd.toArray.sorted
 				if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 2 && revP > 2) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (splitEnd.size == 0 && fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
 				val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-				if (fwdP > 3 && revP > 3 && (fwdS + revS) > 0 && splitDif <= 20) {
+				if (fwdP >= 3 && revP >= 3 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//println(s"Criteria for print ${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}")
 					
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
@@ -286,7 +287,7 @@ object findMobileElements{
 			val targets = splitEnd.toArray.sorted
 			if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (splitEnd.size == 0 && fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			if (fwdP > 4 && revP > 4 && (fwdS + revS) > 0 && splitDif <= 20) {
+			if (fwdP >= 3 && revP >= 3 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//val targets = splitEnd.toArray.sorted
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
