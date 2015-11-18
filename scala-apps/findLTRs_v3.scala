@@ -244,7 +244,7 @@ object findMobileElements{
 						} else {
 							/* Window is True, improperly paired and good mapping quality */
 							//output.addAlignment(tmp)
-							lastStart = tmp.getAlignmentStart
+							//?? Should this be here? // lastStart = tmp.getAlignmentStart
 							if (tmp.getStringAttribute("SA") == null ) { //|| tmp.getSupplementaryAlignmentFlag == false){ Not supllemantary alignment
 								if (tmp.getReadNegativeStrandFlag == false){ // Not sup and on +ve strand
 									if (lastfwd) firstEnd = tmp.getAlignmentEnd

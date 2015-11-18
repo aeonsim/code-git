@@ -59,7 +59,7 @@ var annoList : List[Tuple5[Int,Int,String,String,String]] = Nil
 		prevChrom = ""
 		annoIn.close
 
-
+//boolean, strand, Name?
 		def isEle (pos: Int, curSearch: Array[Tuple5[Int,Int,String,String,String]]) : Tuple3[Boolean,String,String] = {
 			val half = scala.math.floor(curSearch.length/2).toInt
 			if (curSearch.length == 0){
@@ -137,7 +137,7 @@ def addGenes (genes: HashSet[String], newPos: String, chr: String): HashSet[Stri
 	val novoGenes = newPos.substring(4,newPos.size -1).split(",").map(s => s.trim.toInt)
 	for ( k <- novoGenes){
 		val tmp = isEle(k,anno(chr))
-		if (tmp._1) genes += tmp._3
+		if (tmp._1) genes += tmp._3 + tmp._2
 	}
 	genes
 }
@@ -223,7 +223,7 @@ while (fwd.hasNext){
 	}
 		
 		/* If complete line process */
-		if (cEventLine.size >= 8){
+		if (cEventLine.size == 9){
 			/* Input format is: Window, FWD iPP, Rev IPP, FWD Split, REV Split, BreakPoints, Breakpoint Dif, Orientation EventTypes (Event,fwd,rev): */
 			/* Store is Chr -> Pos -> Tuple5[Obs,Carriers,ImpropPaired,NumOFBreakpoints(List[Int]),# SplitReads,BreakDif HashSet[Int],MatePairPatArray[Int],MAP[Event(fwd,rev)]]*/
 			val NumOFBreakpoints = cEventLine(5).split(",").size
