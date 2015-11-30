@@ -24,7 +24,6 @@ depths.close
 
 /* HashMap[Proband -> (Sire, Dam, List[Children])]*/
 
-
 val families = new HashMap[String,Tuple3[String,String,List[String]]]
 
 val popIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Damona-full.ped")))
@@ -200,8 +199,7 @@ def pedEventType (posCarriers: List[String]): String = {
 while (fwd.hasNext){
 
 	val F = fwd.next
-//try {
-	//val S = sFwd.next
+
 	val fID = F.toString.split("/").last.split("_").apply(0)
 	workingPop += fID
 
@@ -269,11 +267,6 @@ while (fwd.hasNext){
 		}
 	}
 
-/*} catch {
-case e: Exception => System.err.println(e + " " + F.toString)
-
-}*/
-
 } // end of main while
 
 
@@ -297,7 +290,9 @@ for (chr <- chromOrder){
 		if (tmp._4.contains(2)){  // require at least one individual to have both breakpoints
 			val sortedBreaks = if (tmp._9.size >= 2) tmp._9.toSeq.sortBy(- _._2).toArray else Array(tmp._9.head, (-1,0))
 			analysis.write(s"${chr}:${pos}-${pos + 1500}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
-			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${scala.math.abs(sortedBreaks(0)._1 - sortedBreaks(1)._1)}:${tmp._6},\t${sortedBreaks(0)._1},${sortedBreaks(1)._1}\t${tmp._10}\t")
+			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${scala.math.abs(sortedBreaks(0)._1 - sortedBreaks(1)._1)}:${tmp._6.filterNot(s => s == 0)},\t"
+			analysis.write(if (sortedBreaks(0)._1 <  sortedBreaks(1)._1) s"${sortedBreaks(0)._1},${sortedBreaks(1)._1}" else s"${sortedBreaks(1)._1},${sortedBreaks(0)._1}")
+			analysis.write("\t${tmp._10}\t")
 			tmp._8.foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")
