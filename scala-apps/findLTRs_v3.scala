@@ -31,7 +31,7 @@ object findMobileElements{
 
 		val outFactory = new htsjdk.samtools.SAMFileWriterFactory
 		//Write header too new bam
-		val output = outFactory.makeSAMOrBAMWriter(input.getFileHeader,true,new File(s"${args(0)}.bam"))
+		//val output = outFactory.makeSAMOrBAMWriter(input.getFileHeader,true,new File(s"${args(0)}.bam"))
 		val outFWD = new BufferedWriter(new FileWriter(new File(s"${args(0)}.bedgraph")))
 		val outEvent = new BufferedWriter(new FileWriter(new File(s"${args(0)}.event.tab")))
 		input.close
@@ -91,6 +91,7 @@ object findMobileElements{
 		//var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 		var RpMp, RpMn, RnMp, RnMn = 0
 		var fwdP, revP, fwdS, revS, firstEnd, lastStart = 0
+		var hetBridge, readDepth = 0
 		var splitEnd = new HashSet[Int]
 		var candidateWindowStart, candidateWindowEnd = 0
 		var windowBoo = false
@@ -139,14 +140,18 @@ object findMobileElements{
 
 
 		def findOthers(breaks: HashSet[Int]) : Unit = {
-				val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
-				var breakpoints = breaks.toArray.sorted
+			val inputBreak = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(args(1)))
+			var breakpoints = breaks.toArray.sorted
 				/* Extract reads covering break point if possible */
 				//println("Breakpoint refinement")
-
+			if (breakpoints.size == 2){
 				val break = inputBreak.queryOverlapping(chrs._1,breakpoints(0),breakpoints(1))
 				while (break.hasNext){
 					val tmpBreak = break.next
+					if (tmpBreak.getAlignmentStart < breakpoints(0) && tmpBreak.getAlignmentEnd > breakpoints(1)){
+						hetBridge += 1
+					}
+					readDepth += 1
 					if (tmpBreak.getMappingQuality == 60 && tmpBreak.getCigarString.contains("S") && tmpBreak.getStringAttribute("SA") == null && repeatsChrom.contains(tmpBreak.getReferenceName) && repeatsChrom.contains(tmpBreak.getMateReferenceName)) {
 						if (tmpBreak.getProperPairFlag == true){
 							if (tmpBreak.getReadNegativeStrandFlag == false) {
@@ -171,6 +176,7 @@ object findMobileElements{
 						}
 					}
 				}
+			}
 		}
 
 
@@ -191,7 +197,7 @@ object findMobileElements{
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
-					outEvent.write("\n")
+					outEvent.write(s"\t${readDepth}:${hetBridge}\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 				} // end of write
 
@@ -210,7 +216,9 @@ object findMobileElements{
 				RnMn = 0
 				firstEnd = 0
 				lastStart = 0
-				lastfwd = false
+				lastfwd = false				
+				readDepth = 0
+				hetBridge = 0
 			} // end of window work
 
 
@@ -293,7 +301,7 @@ object findMobileElements{
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
-					outEvent.write("\n")
+					outEvent.write(s"\t${readDepth}:${hetBridge}\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 			}
 		}
@@ -302,7 +310,7 @@ object findMobileElements{
 		} // end for chr from Chroms
 		outEvent.close
 		outFWD.close
-		output.close
+		//output.close
 	} // def main
 
 } //object

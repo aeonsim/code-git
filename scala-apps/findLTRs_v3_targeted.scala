@@ -101,13 +101,10 @@ object targetMobileElements{
 		val fID = if (bamFile.toString.contains("_")) bamFile.toString.split("/").last.split("_").apply(0) else bamFile.toString.split("/").last.split(".").apply(0)
 		
 		val outEvent = new BufferedWriter(new FileWriter(new File(s"${fID}.event.tab")))
-
-
-		for (win <- targetWindows.reverse){
-		//print(" " + win._1)
 		val input = htsjdk.samtools.SamReaderFactory.make.validationStringency(ValidationStringency.SILENT).open(new File(bamFile))
 
-		
+		for (win <- targetWindows.reverse){
+		//print(" " + win._1)		
 		
 		var alignments = input.queryOverlapping(win._1,win._2,win._3)
 		var typeEvent = new HashMap[String,Tuple2[Int,Int]]
@@ -274,7 +271,8 @@ object targetMobileElements{
 			val targets = splitEnd.toArray.sorted
 			if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (splitEnd.size == 0 && fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
 			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
-			if (fwdP >= 0 && revP >= 0 && (fwdS + revS) > 0 && splitDif <= 20) {
+			//if (fwdP >= 0 && revP >= 0 && (fwdS + revS) > 0 && splitDif <= 20) {
+			if (fwdP >= 0 && revP >= 0 && splitDif <= 20) {
 					//val targets = splitEnd.toArray.sorted
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
@@ -283,10 +281,10 @@ object targetMobileElements{
 					outEvent.write("\n")
 			}
 		}
-		input.close
 
 		} // end for chr from targets
 		outEvent.close
+		input.close
 	}// End loop through BAMS
 	} // def main
 

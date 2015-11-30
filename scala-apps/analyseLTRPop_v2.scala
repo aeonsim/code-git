@@ -144,7 +144,7 @@ def addGenes (genes: HashSet[String], newPos: String, chr: String): HashSet[Stri
 
 
 def pedEventType (posCarriers: List[String]): String = {
-	var fullped, partped, denovo, junk = 0
+	var fullped, partped, denovo, posDenovo, junk = 0
 	for (individual <- posCarriers){
 	/* if core family member */
 		if (families.contains(individual) && curDepth.contains(individual) && curDepth(individual) >= 15){
@@ -165,8 +165,11 @@ def pedEventType (posCarriers: List[String]): String = {
 					if ( kids >= 1 ){
 						denovo += 1
 					} else {
-						junk += 1
+						
+						posDenovo += 1
 					}
+				} else {
+					junk += 1
 				}
 			}
 
@@ -174,7 +177,7 @@ def pedEventType (posCarriers: List[String]): String = {
 
 
 	}
-	s"${fullped}\t${partped}\t${denovo}\t${junk}"
+	s"${fullped}\t${partped}\t${denovo}:${posDenovo}\t${junk}"
 
 }
 
