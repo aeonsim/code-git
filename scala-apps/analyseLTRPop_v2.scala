@@ -8,7 +8,7 @@ import java.io._
 val fwd = org.apache.commons.io.FileUtils.listFiles(new File("."),Array("event.tab"),true).iterator
 //val sFwd = org.apache.commons.io.FileUtils.listFiles(new File("."),Array("split.fwd.bedgraph"),true).iterator
 
-val depths = new BufferedReader(new FileReader(new File("/scratch/aeonsim/LTR-retros/currentDepths.txt")))
+val depths = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/currentDepths.txt")))
 
 /* Chr -> Pos -> Tuple5[Obs,Carriers,ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int], Orination Array, Event HashMap, Breakpoints HashSet, genes hashSet]*/
 
@@ -27,7 +27,7 @@ depths.close
 
 val families = new HashMap[String,Tuple3[String,String,List[String]]]
 
-val popIn = new BufferedReader(new FileReader(new File("/scratch/aeonsim/vcfs/ref-peds/Damona-Full-8Jan15.ped")))
+val popIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Damona-full.ped")))
 val annoIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Bos_taurus.UMD3.1.82.gtf")))
 
 //Chr -> Tuple5[start, end, class, name/id, strand]
@@ -230,7 +230,8 @@ while (fwd.hasNext){
 			/* Input format is: Window, FWD iPP, Rev IPP, FWD Split, REV Split, BreakPoints, Breakpoint Dif, Orientation EventTypes (Event,fwd,rev): */
 			/* Store is Chr -> Pos -> Tuple5[Obs,Carriers,ImpropPaired,NumOFBreakpoints(List[Int]),# SplitReads,BreakDif HashSet[Int],MatePairPatArray[Int],MAP[Event(fwd,rev)]]*/
 			val NumOFBreakpoints = cEventLine(5).split(",").size
-			val chrom = cEventLine(0).split(":").apply(0).trim
+			val chrom = "chr" + cEventLine(0).split(":").apply(0).trim.substring(3,cEventLine(0).split(":").apply(0).trim.size)			
+			//val chrom = cEventLine(0).split(":").apply(0).trim
 
 			val start = cEventLine(0).split(":").apply(1).split("-").apply(0).toInt
 			var modStart = if (data.contains(chrom) && data(chrom).contains(start.toInt - 500) ) (start - 500) else if (data.contains(chrom) && data(chrom).contains(start.toInt + 500)) (start + 500) else if (data.contains(chrom) && data(chrom).contains(start.toInt - 1000) ) (start - 1000) else if (data.contains(chrom) && data(chrom).contains(start.toInt + 500) ) (start + 500) else start
