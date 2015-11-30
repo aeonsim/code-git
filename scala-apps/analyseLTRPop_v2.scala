@@ -147,7 +147,7 @@ def pedEventType (posCarriers: List[String]): String = {
 	var fullped, partped, denovo, posDenovo, junk = 0
 	for (individual <- posCarriers){
 	/* if core family member */
-		if (families.contains(individual) && curDepth.contains(individual) && curDepth(individual) >= 15){
+		if (families.contains(individual) && curDepth.contains(individual) && curDepth(individual) >= 10.0){
 			val cfam = families(individual)
 			if (posCarriers.contains(cfam._1) || posCarriers.contains(cfam._2)){
 				var kids = 0
@@ -322,7 +322,7 @@ for (chr <- chromOrder){
 		/* Store is Chr -> Pos -> Tuple5[Obs,List[Carriers],ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int]]*/
 		if (tmp._4.contains(2)){  // require at least one individual to have both breakpoints
 			analysis.write(s"${chr}:${pos}-${pos + 1500}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
-			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${tmp._6}\t${tmp._9}\t${tmp._10}\t")
+			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${tmp._6.filterNot(s => s == 0)}\t${tmp._9}\t${tmp._10}\t")
 			tmp._8.foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")
