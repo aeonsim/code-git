@@ -295,9 +295,9 @@ for (chr <- chromOrder){
 	//	if(tmp._3 >= 5){
 		/* Store is Chr -> Pos -> Tuple5[Obs,List[Carriers],ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int]]*/
 		if (tmp._4.contains(2)){  // require at least one individual to have both breakpoints
-			val sortedBreaks = tmp._6.toSeq.sortBy(- _._2).toArray
+			val sortedBreaks = if (tmp._9.size >= 2) tmp._9.toSeq.sortBy(- _._2).toArray else Array(tmp._9.head, (-1,0))
 			analysis.write(s"${chr}:${pos}-${pos + 1500}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
-			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${sortedBreaks(0) - sortedBreaks(1)}\t${sortedBreaks(0)},${sortedBreaks(1)}\t${tmp._10}\t")
+			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${sortedBreaks(0)._1 - sortedBreaks(1)._1}\t${sortedBreaks(0)._1},${sortedBreaks(1)._1}\t${tmp._10}\t")
 			tmp._8.foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")
