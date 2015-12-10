@@ -282,7 +282,7 @@ val refinedData = new HashMap[String,HashMap[Int,Tuple10[Int,List[String],Int,Li
 
 for (chr <- chromOrder){
 
-	val tmpDataOrder = if (data.contains(chr)) data(chr).keys.toArray.sorted else HashMap()
+	val tmpDataOrder = if (data.contains(chr)) data(chr).keys.toArray.sorted else Array()
 
 	for (pos <- tmpDataOrder){
 		val tmp = data(chr)(pos)
@@ -306,7 +306,7 @@ for (chr <- chromOrder){
 }
 
 for (chr <- chromOrder){
-	val tmpDataOrder = refinedData(chr).keys.toArray.sorted
+	val tmpDataOrder = if (refinedData.contains(chr)) refinedData(chr).keys.toArray.sorted else Array()
 
 	for (pos <- tmpDataOrder){
 
