@@ -277,19 +277,47 @@ val chromOrder = data.keys.filter(s => ! List("chrX","chrM").contains(s)).toList
 
 analysis.write(s"CHROM:START-END\tPOP%\tnPP_READS\tsplit_READS\tNUM-CARRIERS\t3gen\tTrio\tDenovo\tposDenovo\tJunk\tR+M+\tR+M-\tR-M+\tR-M-\tMostCommonBreakpointDif\tBreakpointDIFs\tBreakpoints\tGene\tEvents\tCARRIERS\n")
 
+
+val refinedData = new HashMap[String,HashMap[Int,Tuple10[Int,List[String],Int,List[Int],Int,HashSet[Int],Array[Int],HashMap[String,Tuple2[Int,Int]],HashMap[Int,Int],HashSet[String]]]]
+
 for (chr <- chromOrder){
+
 	val tmpDataOrder = data(chr).keys.toArray.sorted
+
+	for (pos <- tmpDataOrder){
+		val tmp = data(chr)(pos)
+		val sortedBreaks = if (tmp._9.size >= 2) tmp._9.toSeq.sortBy(- _._2).toArray else Array(tmp._9.head, (-1,0))
+		val startPos = if (sortedBreaks(0)._1 > sortedBreaks(1)._1) sortedBreaks(1)._1 else sortedBreaks(0)._1
+		if (refinedData.contains(chr)){
+			if (refinedData(chr).contains(startPos)){
+				//Combine windows
+				//data(chrom)(modStart) = (wk._1 + 1, fID :: wk._2, wk._3 + cEventLine(1).toInt + cEventLine(2).toInt, NumOFBreakpoints :: wk._4, wk._5 + cEventLine(3).toInt + cEventLine(4).toInt, wk._6 + cEventLine(6).toInt, updatePat(RepMatePat,chrom,modStart),updatedEvents,addBreaksInfo(wk._9,cEventLine(5)),addGenes(wk._10,cEventLine(5),chrom))
+				val pd = refinedData(chr)(startPos)
+				refinedData(chr)(startPos) = (pd._1 + tmp._1, pd._2 ++ tmp._2, pd._3 + tmp._3, pd._4 ++ tmp._4, pd._5 + tmp._5, pd._6 ++ tmp._6, pd._7 ++ tmp._7,pd._8 ++ tmp._8, pd._9 ++ tmp._9, pd._10 ++ tmp._10)
+			} else {
+				//add window
+				refinedData(chr) += startPos -> tmp
+			}
+		} else {
+			refinedData += chr -> HashMap(startPos -> tmp)
+		}
+	}
+
+}
+
+for (chr <- chromOrder){
+	val tmpDataOrder = refinedData(chr).keys.toArray.sorted
 
 	for (pos <- tmpDataOrder){
 
 /* (Count, List[ID's])*/
 		
-		val tmp = data(chr)(pos)
+		val tmp = refinedData(chr)(pos)
 	//	if(tmp._3 >= 5){
 		/* Store is Chr -> Pos -> Tuple5[Obs,List[Carriers],ImpropPaired,NumOFBreakpoints(Array[Int]),# SplitReads,BreakDif HashSet[Int]]*/
 		if (tmp._4.contains(2)){  // require at least one individual to have both breakpoints
 			val sortedBreaks = if (tmp._9.size >= 2) tmp._9.toSeq.sortBy(- _._2).toArray else Array(tmp._9.head, (-1,0))
-			analysis.write(s"${chr}:${pos}-${pos + 1500}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
+			analysis.write(s"${chr}:${pos}-${pos}\t${tmp._1/populationSize.toFloat}\t${tmp._3}\t${tmp._5}\t${tmp._1}")
 			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${scala.math.abs(sortedBreaks(0)._1 - sortedBreaks(1)._1)}\t${tmp._6.filterNot(s => s == 0)}\t")
 			analysis.write(if (sortedBreaks(0)._1 <  sortedBreaks(1)._1) s"${sortedBreaks(0)._1}-${sortedBreaks(1)._1}" else s"${sortedBreaks(1)._1}-${sortedBreaks(0)._1}")
 			analysis.write(s"\t${tmp._10}\t")
