@@ -284,7 +284,7 @@ for (chr <- chromOrder){
 
 	val tmpDataOrder = if (data.contains(chr)) data(chr).keys.toArray.sorted else Array()
 
-	if (tmpDataOrder >= 1) {
+	if (tmpDataOrder.size >= 1) {
 	for (pos <- tmpDataOrder){
 		val tmp = data(chr)(pos)
 		val sortedBreaks = if (tmp._9.size >= 2) tmp._9.toSeq.sortBy(- _._2).toArray else Array(tmp._9.head, (-1,0))
