@@ -327,8 +327,9 @@ for (chr <- chromOrder){
 			analysis.write(s"\t" + pedEventType(tmp._2) + s"\t${tmp._7(0)}\t${tmp._7(1)}\t${tmp._7(2)}\t${tmp._7(3)}\t${scala.math.abs(sortedBreaks(0)._1 - sortedBreaks(1)._1)}\t${tmp._6.filterNot(s => s == 0)}\t")
 			analysis.write(if (sortedBreaks(0)._1 <  sortedBreaks(1)._1) s"${sortedBreaks(0)._1}-${sortedBreaks(1)._1}" else s"${sortedBreaks(1)._1}-${sortedBreaks(0)._1}")
 			analysis.write(s"\t${tmp._10}\t")
-			analysis.write(s"${tmp._8.toSeq.sortBy(s => - (s._2._1 + s._2._2)).apply(0)}\t")
-			tmp._8.toSeq.sortBy(s => - (s._2._1 + s._2._2)).foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
+			val sortedEvents = tmp._8.toSeq.sortBy(s => - (s._2._1 + s._2._2))
+			analysis.write(s"${sortedEvents(0)._1}:${sortedEvents(0)._2._1},${sortedEvents(0)._2._2}\t")
+			sortedEvents.foreach(s => analysis.write(s"${s._1},${s._2._1},${s._2._2}:"))
 			tmp._2.foreach(da => analysis.write("\t" + da))
 			analysis.write("\n")
 		}
