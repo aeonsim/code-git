@@ -214,8 +214,8 @@ object targetMobileElements{
 
 					val curMateLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
 					val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
-					if (curMainLTRcheck._1 == false && curMateLTRcheck._1 == true){
-
+					//if (curMainLTRcheck._1 == false && curMateLTRcheck._1 == true){
+					if (curMateLTRcheck._1 == true){
 						if (windowBoo == false){
 							if (tmp.getReadNegativeStrandFlag == false){
 								firstEnd = tmp.getAlignmentEnd
