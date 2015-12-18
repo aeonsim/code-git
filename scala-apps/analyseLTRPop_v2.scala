@@ -28,6 +28,7 @@ val families = new HashMap[String,Tuple3[String,String,List[String]]]
 
 val popIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Damona-full.ped")))
 val annoIn = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/Bos_taurus.UMD3.1.82.gtf")))
+val annoIn2 = new BufferedReader(new FileReader(new File("/home/aeonsim/refs/RefSeq_Genes.gtf")))
 
 //Chr -> Tuple5[start, end, class, name/id, strand]
 
@@ -57,6 +58,33 @@ var annoList : List[Tuple5[Int,Int,String,String,String]] = Nil
 		annoList = Nil
 		prevChrom = ""
 		annoIn.close
+		
+		
+		
+		var anno2 = new HashMap[String,Array[Tuple5[Int,Int,String,String,String]]]
+		while (annoIn2.ready){
+			val tmp = annoIn2.readLine.split("\t")
+			if (tmp(0).apply(0) != '#'){
+				val chr = tmp(0)
+				if (tmp(2) == "gene") {
+					val info = tmp(8).replaceAll("=",";").split(";")
+					val name = if (info.contains("symbol_ncbi")) info(info.indexOf("symbol_ncbi") + 1) else if (info.contains("Dbxref")) info(info.indexOf("Dbxref") + 1) else info(info.indexOf("ID") + 1)
+					if (prevChrom == chr){
+						annoList = (tmp(3).toInt,tmp(4).toInt, tmp(2), name, tmp(6)) :: annoList
+					} else {
+						anno2 += prevChrom -> annoList.reverse.toArray
+						annoList = (tmp(3).toInt,tmp(4).toInt, tmp(2), name, tmp(6)) :: Nil
+						prevChrom = chr
+					}
+				}
+			}
+		}//end while repeats
+		
+		anno2 += prevChrom -> annoList.reverse.toArray
+		annoList = Nil
+		prevChrom = ""
+		annoIn.close
+		
 
 //boolean, strand, Name?
 		def isEle (pos: Int, curSearch: Array[Tuple5[Int,Int,String,String,String]]) : Tuple3[Boolean,String,String] = {
@@ -149,7 +177,9 @@ def addGenes (genes: HashSet[String], newPos: String, chr: String): HashSet[Stri
 	val novoGenes = newPos.substring(4,newPos.size -1).split(",").map(s => s.trim.toInt)
 	for ( k <- novoGenes){
 		val tmp = isEle(k,anno(chr))
+		val tmp2 = isEle(k,anno2(chr))
 		if (tmp._1) genes += tmp._3 + tmp._2
+		if (tmp2._1) genes += tmp2._3 + tmp2._2
 	}
 	genes
 }
