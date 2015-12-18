@@ -255,7 +255,7 @@ while (fwd.hasNext){
 	def updateEvents (info: String, curEvents: HashMap[String,Tuple2[Int,Int]]) : HashMap[String,Tuple2[Int,Int]] = {
 		/* evs are Event,FWD.int,REV.int */
 		var workingEvs = curEvents
-		for (evs <- info.substring(0,info.size -1).split(":")){
+		if (info.size >= 1) for (evs <- info.substring(0,info.size -1).split(":")){
 			val cevs = evs.split(",")
 			if (workingEvs.contains(cevs(0))){
 				workingEvs(cevs(0)) = (cevs(1).toInt + workingEvs(cevs(0))._1,cevs(2).toInt + workingEvs(cevs(0))._2) 
