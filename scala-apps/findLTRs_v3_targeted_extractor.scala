@@ -160,6 +160,7 @@ object targetMobileElementsExtract{
 					}
 				}
 			}
+			inputBreak.close
 		}
 
 
@@ -203,6 +204,7 @@ object targetMobileElementsExtract{
 				//	case e: Exception => println("exception caught: " + e);
 				//}//try 
 				}//size check breakpoints
+				inputBreak.close
 		}
 
 

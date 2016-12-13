@@ -132,8 +132,8 @@ def childPhase(curPhase: Tuple2[String,String], child: String): String ={
 
 
 def main (args: Array[String]) : Unit = {
-val ped = new BufferedReader(new FileReader("/Users/chhar0/Dropbox/PHD-WORK/VALIDATION/Validation/ValPed_20150428.txt"))
-val GTs = new BufferedReader(new FileReader("/Users/chhar0/Dropbox/PHD-WORK/VALIDATION/Validation/ValGenos_20150428_sorted.txt"))
+val ped = new BufferedReader(new FileReader("/Users/chhar0/Google Drive/PhD-Work/VALIDATION/Validation/ValPed_20150428.txt"))
+val GTs = new BufferedReader(new FileReader("/Users/chhar0/Google Drive/PhD-Work/VALIDATION/Validation/ValGenos_20150428_sorted.txt"))
 val familyStruc = new BufferedWriter(new FileWriter(args(0) + ".txt"))
 val targets = Array("1:20685483","1:20686441","1:45112139","1:51910329","1:72951069","1:97016955","1:126381931","2:75906827","2:79427071","2:112292340","2:112504415","2:134281292","3:43959715","3:53422946","3:75872618","4:113354881","5:36704515","5:41979803","5:41979804","5:120892467","6:21950345","6:35745447","6:112271783","7:21700920","7:49632157","8:10605678","8:31372887","8:40252470","9:43952072","9:86942337","9:96048216","10:491674","10:102808584","11:35306013","11:35306025","11:82969272","11:83075673","11:89422735","12:87938762","13:21363737","13:26725465","14:21325160","14:41813012","14:74925688","14:83709794","16:44658436","16:50384297","16:51332968","17:10447474","17:15961079","17:41784655","17:59076286","17:70143316","18:6505926","19:21113066","19:29060137","20:344573","20:64353624","21:64806901","21:70782567","23:13861856","23:28578136","23:29507176","23:30528411","23:52456938","25:40438599","26:10183274","26:36774923","29:3416251","X:23460318")
 

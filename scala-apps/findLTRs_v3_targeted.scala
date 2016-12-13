@@ -113,6 +113,7 @@ object targetMobileElements{
 		//var LTRpRn, LTRpRp, LTRnRp, LTRnRn = 0
 		var RpMp, RpMn, RnMp, RnMn = 0
 		var fwdP, revP, fwdS, revS, firstEnd, lastStart = 0
+		var windowDepth = 0
 		var splitEnd = new HashSet[Int]
 		var candidateWindowStart = win._2
 		var candidateWindowEnd = win._3
@@ -206,7 +207,7 @@ object targetMobileElements{
 		/* Process all alignments on a Chromosome */
 		while (alignments.hasNext){
 			val tmp = alignments.next		
-
+			windowDepth += 1
 			/* PRoper window identification, Check if on good Chromosomes */
 			if (repeatsChrom.contains(tmp.getReferenceName) && repeatsChrom.contains(tmp.getMateReferenceName)){
 
@@ -270,9 +271,9 @@ object targetMobileElements{
 		if (windowBoo){
 			val targets = splitEnd.toArray.sorted
 			if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (splitEnd.size == 0 && fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
-			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
+			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1))+1 else 0
 			//if (fwdP >= 0 && revP >= 0 && (fwdS + revS) > 0 && splitDif <= 20) {
-			if (fwdP >= 0 && revP >= 0 && splitDif <= 20) {
+			if (fwdP >= 2 && revP >= 2 && splitDif <= 20) {
 					//val targets = splitEnd.toArray.sorted
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"

@@ -1,31 +1,42 @@
 //JAVA_OPTS=-Xmx4g  scala -cp ~/Dropbox/PHD-WORK/pedigreeFilter/lib/commons-math3-3.3.jar
 
 import java.io._
+System.err.println("scala app <numKids> <earlyRate x.x> <standadRate x.x> <spermRate x.x> <PGCs> <bias?> <earlyDivisions>")
 
 for (n <-  (1 to 100)){
 
 val rand = scala.util.Random
 val genomeSize = 2147000000
 //val genomeSize = 2600000000L
-val addSharedSoma = 8
+val addSharedSoma = 3
 
 /* Different differentiation events in embryo development */
 
-val innerCellForm = 7
+val innerCellForm = 6
 val innerCellPercent = 0.21
 val ebiBlastFormation = 4
 val epiBlastPercent = 0.5
 val embEbpi = 4
 val embEbpiPercent = 0.5
 
+val PGCnum = args(4).toInt
+val bias = if (args(5).toUpperCase.contains("T")) true else false
 
-val pgcRepMale = 16
+val offspring = args(0).toInt
+val probFilterRange = (1/scala.math.pow(0.5,offspring)).toInt
+val pgcRepMale = 18
 val pgcRepFemale = 18
 val sprmgon = 500000
 val oogon = 500000
-val poi = new org.apache.commons.math3.distribution.PoissonDistribution(1)
-val spermpoi = new org.apache.commons.math3.distribution.PoissonDistribution(2/23.0)
-val mutFreqBlood = new scala.collection.mutable.HashMap[Int, Int]
+val earlypoi = new org.apache.commons.math3.distribution.PoissonDistribution(args(1).toDouble)
+val poi = new org.apache.commons.math3.distribution.PoissonDistribution(args(2).toDouble)
+val spermpoi = new org.apache.commons.math3.distribution.PoissonDistribution(args(3).toDouble)
+val lastFastRep = args(6).toInt
+if (lastFastRep > innerCellForm) {
+	System.err.println("Early Divisions occuring pass innercell mass formation at 6th division lower early divisions")
+	System.exit(0)
+}
+val mutFreqBlood = new scala.collection.mutable.HashMap[Int, Double]
 val mutFreqFemaleGamete = new scala.collection.mutable.HashMap[Int, Int]
 val mutFreqMaleGamete = new scala.collection.mutable.HashMap[Int, Int]
 val yold = 5
@@ -40,9 +51,14 @@ count += 1
 result
 }
 
-var cells: List[List[Int]] = List(mutGen(poi.sample))
+//var cells: List[List[Int]] = List(mutGen(poi.sample))
+var cells: List[List[Int]] = List(mutGen(0))
 
-for (i <- 1 to innerCellForm) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+for (i <- 1 to lastFastRep) cells = cells.map(e => mutGen(earlypoi.sample) ::: e) ::: cells.map(e => mutGen(earlypoi.sample) ::: e)
+
+if (lastFastRep < 6) {
+	for (i <- (lastFastRep + 1) to innerCellForm) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)	
+}
 
 var newCells: List[List[Int]] = Nil
 
@@ -65,16 +81,39 @@ for (i <- 1 to (cells.size * embEbpiPercent).toInt) newCells = cells(rand.nextIn
 cells = newCells
 newCells = Nil
 
+
 var PGC: List[List[Int]] = Nil
-for (i <- 1 to 6) PGC = cells(rand.nextInt(cells.size)) :: PGC
-println(s"Selected ${PGC.size} PGCs, Soma is ${cells.size} cells")
 
-for (i <- 1 to addSharedSoma) cells = cells.map(e => mutGen(poi.sample) ::: e) ::: cells.map(e => mutGen(poi.sample) ::: e)
+	if (bias){
+			var biasArray :List[List[Int]] = Nil
 
-for (i <- 1 to 34) PGC = cells(rand.nextInt(cells.size)) :: PGC
+			var cCell  = 0
+			while (cCell < cells.size){
+				//Add multiplier if want stronger bias
+				var nMut = 1 + (cells(cCell).size * 1)
+				var muC = 0
+				while (muC < nMut){
+					biasArray = cells(cCell) :: biasArray
+					muC += 1
+				}
+
+				cCell += 1
+			}
+
+
+			for (i <- 1 to PGCnum) PGC = biasArray(rand.nextInt(biasArray.size)) :: PGC
+
+		} else {
+			for (i <- 1 to PGCnum) PGC = cells(rand.nextInt(cells.size)) :: PGC
+	}
+
+
+
+
+//for (i <- 1 to 34) PGC = cells(rand.nextInt(cells.size)) :: PGC
 val blood = cells
 cells = Nil
-println(s"After ${addSharedSoma} additional reps have selected 34 additional PGCs, now have ${PGC.size} PGCs")
+println(s"After ${addSharedSoma} additional reps have selected 30 additional PGCs, now have ${PGC.size} PGCs")
 
 var PGCmA, PGCfA = Array(List(0))
 
@@ -93,8 +132,10 @@ PGC = Nil
 var sgona : List[List[Int]] = Nil
 var ogona : List[List[Int]] = Nil
 
-for (i <- 1 to sprmgon) sgona = PGCmA(rand.nextInt(PGCmA.size)) :: sgona
-for (i <- 1 to oogon) ogona = PGCfA(rand.nextInt(PGCfA.size)) :: ogona
+//for (i <- 1 to sprmgon) sgona = PGCmA(rand.nextInt(PGCmA.size)) :: sgona
+//for (i <- 1 to oogon) ogona = PGCfA(rand.nextInt(PGCfA.size)) :: ogona
+sgona = scala.util.Random.shuffle(PGCmA.toList).take(sprmgon)
+ogona = scala.util.Random.shuffle(PGCfA.toList).take(oogon)
 
 for (i <- 1 to yold){
 for (i <- 1 to 23 ) sgona = sgona.map(e => mutGen(spermpoi.sample) ::: e)
@@ -133,14 +174,16 @@ sgona = tmpSperm
 
 for (i <- blood){
 for (muts <- i){
-if (mutFreqBlood.contains(muts)) mutFreqBlood(muts) += 1
-else mutFreqBlood += muts -> 1
+if (mutFreqBlood.contains(muts)) mutFreqBlood(muts) += 0.5
+else mutFreqBlood += muts -> 0.5
 }
 }
+
 val outAFblood = new BufferedWriter(new FileWriter(s"${n}-AF-soma-blood-5y.tab"))
 for (d <- mutFreqBlood.toArray.sortBy( a => -1.0 * a._2)){
-outAFblood.write(s"${d._2/mutFreqBlood.size.toFloat}\n")
+outAFblood.write(s"${d._1}\t${d._2/mutFreqBlood.size.toFloat}\n")
 }
+
 outAFblood.close
 
 var AFSperm = new scala.collection.mutable.HashMap[Int, Int]
@@ -156,7 +199,7 @@ val numSperm = sgona.size.toFloat
 
 val outAFsperm = new BufferedWriter(new FileWriter(s"${n}-AF-sperm-5y.tab"))
 for (d <- AFSperm.toArray.sortBy( a => -1.0 * a._2)){
-outAFsperm.write(s"${d._2/numSperm}\n")
+outAFsperm.write(s"${d._1}\t${d._2/numSperm}\n")
 }
 outAFsperm.close
 
@@ -164,14 +207,29 @@ val out1Ksperm = new BufferedWriter(new FileWriter(s"${n}-1K-sperm-5y.tab"))
 val out1KspermBlood = new BufferedWriter(new FileWriter(s"${n}-1K-sperm-Blood-AF-5y.tab"))
 
 for (i <- 1 to 1000){
+	var keep, discard, bloodkeep, blooddiscard : List[String] = Nil
 for (s <- sgona(rand.nextInt(sgona.size))){
-out1Ksperm.write(AFSperm(s)/numSperm + "\t")
+	if (rand.nextInt(probFilterRange) == 0 ) discard = s"${s}:${AFSperm(s)/numSperm}" :: discard else keep = s"${s}\t${AFSperm(s)/numSperm}" :: keep
 if (mutFreqBlood.contains(s)){
-out1KspermBlood.write(s"${mutFreqBlood(s)/mutFreqBlood.size.toFloat}\t")
+	if (rand.nextInt(probFilterRange) == 0 ) blooddiscard = s"${s}:${mutFreqBlood(s)/mutFreqBlood.size.toFloat}" :: blooddiscard else bloodkeep = s"${s}\t${mutFreqBlood(s)/mutFreqBlood.size.toFloat}" :: bloodkeep
+//out1KspermBlood.write(s"${s}\t${mutFreqBlood(s)/mutFreqBlood.size.toFloat}\t")
 } else {
-out1KspermBlood.write("0\t")
+//out1KspermBlood.write("${s}\t0\t")
+if (rand.nextInt(probFilterRange) == 0 ) blooddiscard = s"${s}:0" :: blooddiscard else bloodkeep = s"${s}\t0" :: bloodkeep
 }
 }
+//out1Ksperm.write( s + "\t" + AFSperm(s)/numSperm + "\t")
+for (i <- discard.reverse) out1Ksperm.write(i + ",")
+if (blooddiscard.size == 0) out1Ksperm.write("-")
+out1Ksperm.write("\t")
+for (i <- keep.reverse) out1Ksperm.write(i + "\t")
+
+for (i <- blooddiscard.reverse) out1KspermBlood.write(i + ",")
+if (blooddiscard.size == 0) out1KspermBlood.write("-")
+out1KspermBlood.write("\t")
+for (i <- bloodkeep.reverse) out1KspermBlood.write(i + "\t")
+
+
 out1Ksperm.write("\n")
 out1KspermBlood.write("\n")
 }
@@ -192,20 +250,36 @@ else AFOocyte += d -> 1
 val outAFOocyte = new BufferedWriter(new FileWriter(s"${n}-AF-oocyte-5y.tab"))
 val out1KoocyteBlood = new BufferedWriter(new FileWriter(s"${n}-1K-oocyte-Blood-AF-5y.tab"))
 for (d <- AFOocyte.toArray.sortBy( a => -1.0 * a._2)){
-outAFOocyte.write(s"${d._2/oogon.toFloat}\n")
+outAFOocyte.write(s"${d._1}\t${d._2/oogon.toFloat}\n")
 }
 outAFOocyte.close
 
 val out1Koocyte = new BufferedWriter(new FileWriter(s"${n}-1K-oocyte-5y.tab"))
 for (i <- 1 to 1000){
+	var keep, discard, bloodkeep, blooddiscard : List[String] = Nil
 for (s <- ogona(rand.nextInt(ogona.size))){
-out1Koocyte.write(AFOocyte(s)/oogon.toFloat + "\t")
+	if (rand.nextInt(probFilterRange) == 0 ) discard = s"${s}:${AFOocyte(s)/oogon.toFloat}" :: discard else keep = s"${s}\t${AFOocyte(s)/oogon.toFloat}" :: keep
+//out1Koocyte.write(s + "\t" + AFOocyte(s)/oogon.toFloat + "\t")
 if (mutFreqBlood.contains(s)){
-out1KoocyteBlood.write(s"${mutFreqBlood(s)/mutFreqBlood.size.toFloat}\t")
+if (rand.nextInt(probFilterRange) == 0 ) blooddiscard = s"${s}:${mutFreqBlood(s)/mutFreqBlood.size.toFloat}" :: blooddiscard else bloodkeep = s"${s}\t${mutFreqBlood(s)/mutFreqBlood.size.toFloat}" :: bloodkeep
+//out1KoocyteBlood.write(s"${s}\t${mutFreqBlood(s)/mutFreqBlood.size.toFloat}\t")
 } else {
-out1KoocyteBlood.write("0\t")
+if (rand.nextInt(probFilterRange) == 0 ) blooddiscard = s"${s}:0" :: blooddiscard else bloodkeep = s"${s}\t0" :: bloodkeep
 }
 }
+for (i <- discard.reverse) out1Koocyte.write(i + ",")
+if (blooddiscard.size == 0) out1Koocyte.write("-")
+out1Koocyte.write("\t")
+for (i <- keep.reverse) out1Koocyte.write(i + "\t")
+
+for (i <- blooddiscard.reverse) out1KoocyteBlood.write(i + ",")
+if (blooddiscard.size == 0) out1KoocyteBlood.write("-")
+out1KoocyteBlood.write("\t")
+for (i <- bloodkeep.reverse) out1KoocyteBlood.write(i + "\t")
+
+
+
+
 out1KoocyteBlood.write("\n")
 out1Koocyte.write("\n")
 }

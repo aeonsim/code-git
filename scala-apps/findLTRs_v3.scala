@@ -93,6 +93,7 @@ object findMobileElements{
 		var fwdP, revP, fwdS, revS, firstEnd, lastStart = 0
 		var hetBridge, readDepth = 0
 		var splitEnd = new HashSet[Int]
+		var windowDepth = 0
 		var candidateWindowStart, candidateWindowEnd = 0
 		var windowBoo = false
 		var lastfwd = false
@@ -135,6 +136,7 @@ object findMobileElements{
 					}
 				}
 			}
+			inputBreak.close
 		}
 
 
@@ -177,6 +179,7 @@ object findMobileElements{
 					}
 				}
 			}
+			inputBreak.close
 		}
 
 
@@ -219,13 +222,14 @@ object findMobileElements{
 				lastfwd = false				
 				readDepth = 0
 				hetBridge = 0
+				windowDepth = 0
 			} // end of window work
 
 
 			/* PRoper window identification, Check if on good Chromosomes */
 			if (repeatsChrom.contains(tmp.getReferenceName) && repeatsChrom.contains(tmp.getMateReferenceName)){
-
-				if (tmp.getProperPairFlag == false && tmp.getMappingQuality == 60){
+				if (windowBoo) windowDepth += 1
+				if (tmp.getProperPairFlag == false && tmp.getMappingQuality >= 20 && tmp.getMappingQuality <= 60 ){
 
 					val curMateLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
 					val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
@@ -238,6 +242,7 @@ object findMobileElements{
 								//output.addAlignment(tmp)
 								//println(" create new window " + tmp.getAlignmentStart)
 								windowBoo = true
+								windowDepth += 1
 								fwdP += 1
 								lastfwd = true
 								directionLTR(curMateLTRcheck._2,tmp.getReadNegativeStrandFlag,tmp.getMateNegativeStrandFlag)
@@ -294,14 +299,14 @@ object findMobileElements{
 		if (windowBoo){
 			val targets = splitEnd.toArray.sorted
 			if (splitEnd.size == 2 && fwdP > 0 && revP > 0) findOthers(splitEnd) else if (splitEnd.size == 1 && fwdP > 0 && revP > 0) findOthers(HashSet(targets(0) - 10, targets(0) + 10)) else if (splitEnd.size == 0 && fwdP > 4 && revP > 4) findOthers(HashSet(firstEnd,lastStart))
-			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1)) else 0
+			val splitDif = if (splitEnd.size == 2) scala.math.abs(splitEnd.toArray.apply(0) - splitEnd.toArray.apply(1))+1 else 0
 			if (fwdP >= 3 && revP >= 3 && (fwdS + revS) > 0 && splitDif <= 20) {
 					//val targets = splitEnd.toArray.sorted
 					//if (splitEnd.size == 2 ) updateCounts(splitEnd) else if (splitEnd.size == 1) updateCounts(HashSet(targets(0) - 10, targets(0) + 10))
 					val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"
 					outEvent.write(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd}\t${fwdP}\t${revP}\t${fwdS}\t${revS}\t${splitEnd}\t${splitDif}\t${ornt}\t")
 					typeEvent.foreach(s => outEvent.write(s"${s._1},${s._2._1},${s._2._2}:"))
-					outEvent.write(s"\t${readDepth}:${hetBridge}\n")
+					outEvent.write(s"\t${readDepth}:${hetBridge}\t${windowDepth}\n")
 					outFWD.write(s"${chrs._1}\t${candidateWindowStart}\t${candidateWindowEnd}\t${fwdP + fwdS + revP + revS}\n")
 			}
 		}
