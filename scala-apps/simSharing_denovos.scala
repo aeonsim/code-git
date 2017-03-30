@@ -4,7 +4,6 @@ import java.io._
 
 val rand = scala.util.Random
 val genomeSize = 2147000000
-//val genomeSize = 2600000000L
 val addSharedSoma = 3
 
 /* Different differentiation events in embryo development */
@@ -24,7 +23,6 @@ val oogon = 500000
 val yold = 5
 
 def mutGen (num: Int): List[Int] = {
-
 var count = 0
 var result : List[Int] = Nil
 while (count < num) {
@@ -44,7 +42,7 @@ val biasedBool = if (args(3).toUpperCase.contains("T")) true else false
 val pgcCount = args(4).toInt
 val numEarly = args(5).toInt
 
-val pgcSelection = if (pgcCount < 10) 14 else 17
+val pgcSelection = 17
 
 //Randomly assign mutations to replications
 
@@ -163,9 +161,9 @@ while (divisions < cellCycles){
 
 			for (i <- 1 to (pgcCount - 1)) PGC = biasArray(rand.nextInt(biasArray.size)) :: PGC
 			*/
-			for (i <- 1 to (pgcCount - 1)) PGC = cells(rand.nextInt((cells.size * 0.2).toInt)) :: PGC
+			for (i <- 1 to pgcCount) PGC = cells(rand.nextInt((cells.size * 0.01).toInt)) :: PGC
 		} else {
-			for (i <- 1 to (pgcCount - 1)) PGC = cells(rand.nextInt(cells.size)) :: PGC
+			for (i <- 1 to pgcCount) PGC = cells(rand.nextInt(cells.size)) :: PGC
 		}
 
 		}

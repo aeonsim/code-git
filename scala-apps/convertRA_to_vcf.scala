@@ -4,7 +4,7 @@ import scala.collection.mutable.HashMap
 
 val input = new BufferedReader(new InputStreamReader(new BlockCompressedInputStream(new FileInputStream("/Users/chhar0/Dropbox/PhD-Work/770k/770K-genotypes.vcf.gz"))))
 val genos = new BufferedReader(new FileReader("Damona20140205_RA2.txt"))
-val out = new BufferedWriter(new OutputStreamWriter(new BlockCompressedOutputStream("Damona-11k_v2.vcf.gz")))
+val out = new BufferedWriter(new OutputStreamWriter(new BlockCompressedOutputStream("Damona-50k_v2.vcf.gz")))
 
 val raGenos = new HashMap[String, Array[String]]
 
@@ -37,12 +37,12 @@ out.write("""##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">""" + "
 var clArray = vcfGeno.split("\t")
 
 out.write(s"${clArray(0)}\t${clArray(1)}\t${clArray(2)}\t${clArray(3)}\t${clArray(4)}\t${clArray(5)}\t${clArray(6)}\t${clArray(7)}\t${clArray(8)}")
-val ids = raGenos("ChrChr:Position").apply(3).split(" ")
+val ids = raGenos("ChrChr:Position").apply(3).toUpperCase.split(" ")
 val sizeLine = ids.size 
 var counter = 0
 
 while (counter < ids.size){
-out.write("\t" + ids(counter))
+out.write("\t" + ids(counter).toUpperCase)
 counter += 1
 //for (i <- ids){
 //out.write( "\t" + i)

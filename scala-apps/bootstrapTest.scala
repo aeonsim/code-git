@@ -1,7 +1,7 @@
 if (args.size < 4 ) println("scala test #ref #alt #refObs #altObs")
 
 val ran = scala.util.Random
-val iterations = 1000000
+val iterations = 10000
 
 val dataPool = Array.fill[String](args(0).toInt)("R") ++ Array.fill[String](args(1).toInt)("A")
 val reads = args(2).toInt + args(3).toInt

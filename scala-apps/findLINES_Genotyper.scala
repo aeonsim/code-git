@@ -95,6 +95,40 @@ object targetMobileElementsBreaks{
 		} //end is LTR
 
 
+	val expReads = 4035
+	val expIPP = 88
+	val expSR = 24
+
+	def bootStrap(reads: Int, evid: Int, geno: Int, avg: Int): Double = {
+		val ran = scala.util.Random
+		val iterations = 10000
+	    val dataPool = Array.fill[String](geno)("R") ++ Array.fill[String](avg)("A")
+	    val tAR = evid.toDouble / reads.toDouble
+	    var bigOrEq, smallOrEq = 0
+	    var tmp = 0
+	    if (dataPool.size >= 1) {
+	      while (tmp < iterations) {
+	        var ref = 0
+	        var alt = 0
+	        var ctr = 0
+	        while (ctr < reads) {
+	          if (dataPool(ran.nextInt(dataPool.size)) == "R") ref += 1 else alt += 1
+	          ctr += 1
+	        }
+	        if (alt >= evid) bigOrEq += 1
+	        tmp += 1
+	      }
+
+	      if (bigOrEq == 0) 1 / iterations.toDouble else bigOrEq / iterations.toDouble
+	    } else {
+	      1
+	    }
+
+
+	}
+
+
+
 		/* Begin analysis of Chromosomes for LTRS */
 
 		for (bamFile <- allBams){
@@ -287,7 +321,7 @@ object targetMobileElementsBreaks{
 					if (tmp.getProperPairFlag == false && tmp.getMappingQuality >= 20 && tmp.getMappingQuality <= 60){
 						allIPP += 1
 
-						val curMateLTRcheck = isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))
+						val curMateLTRcheck = if (isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName))._1 == true ) isLTR(tmp.getMateAlignmentStart,repeatsChrom(tmp.getMateReferenceName)) else isLTR(tmp.getMateAlignmentStart + 100,repeatsChrom(tmp.getMateReferenceName))
 						val curMainLTRcheck = isLTR(tmp.getAlignmentStart,repeatsChrom(tmp.getReferenceName))
 						//if (curMainLTRcheck._1 == false && curMateLTRcheck._1 == true){
 						if (curMateLTRcheck._1 == true){
@@ -353,7 +387,9 @@ object targetMobileElementsBreaks{
 				}
 				println(s"${chrs._1}:${candidateWindowStart}-${candidateWindowEnd} fwd:${fwdP} rev:${revP} Splits:${fwdS} ${revS} splitDif:${splitDif}")
 				//if (fwdP >= 1 && revP >= 1 && (fwdP + revP) >= 3 && splitDif <= 20) {
-					if (fwdP >= 1 && revP >= 1 && (fwdP + revP) >= 3 ) {
+					//if (fwdP >= 1 && revP >= 1 && (fwdP + revP) >= 3 ) {
+						System.err.println(windowDepth)
+						if (bootStrap(windowDepth,fwdP + revP,expReads,expIPP) <= 0.05 ){ //||  bootStrap(windowDepth,fwdS + revS,expReads,expSR) <= 0.05) {
 						val best5p = if (c5pSplit.size >= 1) c5pSplit.toSeq.sortBy(-_._2).toArray.apply(0)._1 else -1
 						val best3p = if (c3pSplit.size >= 1) c3pSplit.toSeq.sortBy(-_._2).toArray.apply(0)._1 else -1
 						val ornt = s"${RpMp}:${RpMn}:${RnMp}:${RnMn}"

@@ -67,7 +67,7 @@ class LINE(chr: String, startP: Int, endP: Int){
 
 
 
-object survey {
+object survey2 {
 
 	def convert2Pos(input: String): Array[Array[Int]] = {
 		if (input != "Map()") input.slice(4,input.size -1).split(",").map(y => y.split("->").map(_.trim.toInt)) else Array()
@@ -87,7 +87,37 @@ object survey {
 		breaks
 	}
 
+	val expReads = 4035
+	val expIPP = 88
+	val expSR = 24
 
+	def bootStrap(reads: Int, evid: Int, geno: Int, avg: Int): Double = {
+		val ran = scala.util.Random
+		val iterations = 10000
+	    val dataPool = Array.fill[String](geno)("R") ++ Array.fill[String](avg)("A")
+	    val tAR = evid.toDouble / reads.toDouble
+	    var bigOrEq, smallOrEq = 0
+	    var tmp = 0
+	    if (dataPool.size >= 1) {
+	      while (tmp < iterations) {
+	        var ref = 0
+	        var alt = 0
+	        var ctr = 0
+	        while (ctr < reads) {
+	          if (dataPool(ran.nextInt(dataPool.size)) == "R") ref += 1 else alt += 1
+	          ctr += 1
+	        }
+	        if (alt >= evid) bigOrEq += 1
+	        tmp += 1
+	      }
+
+	      if (bigOrEq == 0) 1 / iterations.toDouble else bigOrEq / iterations.toDouble
+	    } else {
+	      1
+	    }
+
+
+	}
 
 
 
@@ -240,30 +270,66 @@ object survey {
 
 			while (cEvents.ready){
 				val cline = cEvents.readLine
-				//println(cline)
+				//System.err.println(cline(0))
 				val cEventLine = cline.split("\t")
 
-				if (! lines.contains(cEventLine(0))){
-						val coords = cEventLine(0).split(":").map(k => k.split("-")).flatten
-						lines += cEventLine(0) -> new LINE(coords(0),coords(1).toInt,coords(2).toInt)
+				// Add depth based filtering if have >16x then must have several reads of support
+				//if (curDepth(fID) >= 10.0 && (((cEventLine(1).toInt + cEventLine(2).toInt) >= curDepth(fID)/1.25 ) || ((cEventLine(3).toInt + cEventLine(4).toInt) >= 4) )){//&& (cEventLine(3).toInt + cEventLine(4).toInt) >= (curDepth(fID)/6) ){
+				if(curDepth.contains(fID)){
+				//Prob based filtering def bootStrap(reads: Int, evid: Int, geno: Int, avg: Int): Double = {
+				//val difIPP = bootStrap((curDepth(fID)*15).toInt,(cEventLine(1).toInt + cEventLine(2).toInt),expReads,expIPP)
+				//if ( difIPP <= 0.1){//&& (cEventLine(3).toInt + cEventLine(4).toInt) >= (curDepth(fID)/6) ){
+				//	val difSR = bootStrap((curDepth(fID)*15).toInt,(cEventLine(3).toInt + cEventLine(4).toInt),expReads,expSR)
+				//	if ((difIPP * difSR) <= 0.0025 ){
+							if (! lines.contains(cEventLine(0))){
+									val coords = cEventLine(0).split(":").map(k => k.split("-")).flatten
+									lines += cEventLine(0) -> new LINE(coords(0),coords(1).toInt,coords(2).toInt)
+								}
+									
+							lines(cEventLine(0)).fwdIP = cEventLine(1).toInt + lines(cEventLine(0)).fwdIP
+							lines(cEventLine(0)).revIP = cEventLine(2).toInt + lines(cEventLine(0)).revIP
+							lines(cEventLine(0)).fwdSR = cEventLine(3).toInt + lines(cEventLine(0)).fwdSR 
+							lines(cEventLine(0)).revSR = cEventLine(4).toInt + lines(cEventLine(0)).revSR
+							lines(cEventLine(0)).allBreaks = addBreaksInfo(lines(cEventLine(0)).allBreaks,cEventLine(5))
+							lines(cEventLine(0)).difs = cEventLine(6).toInt :: lines(cEventLine(0)).difs
+							lines(cEventLine(0)).addRMInfo(cEventLine(7).split(":").map(_.toInt))
+							lines(cEventLine(0)).addEventInfo(cEventLine(8).split(":").map(_.split(",")))
+							lines(cEventLine(0)).addGeno(fID,cEventLine(9))
+							lines(cEventLine(0)).windowDepth = cEventLine(10).toInt :: lines(cEventLine(0)).windowDepth
+							lines(cEventLine(0)).other = cEventLine(11).toInt :: lines(cEventLine(0)).other
+							lines(cEventLine(0)).readsRatio = cEventLine(12).toDouble :: lines(cEventLine(0)).readsRatio
+							lines(cEventLine(0)).etype = cEventLine(13) :: lines(cEventLine(0)).etype
+							lines(cEventLine(0)).addBreaks(cEventLine(14))
+							lines(cEventLine(0)).addSize(cEventLine(15))
+							lines(cEventLine(0)).carriers = fID :: lines(cEventLine(0)).carriers					
+					} else {/*
+						if (curDepth(fID) < 10 && (cEventLine(1).toInt + cEventLine(2).toInt) >= (curDepth(fID) * 2) ){
+							if (! lines.contains(cEventLine(0))){
+								val coords = cEventLine(0).split(":").map(k => k.split("-")).flatten
+								lines += cEventLine(0) -> new LINE(coords(0),coords(1).toInt,coords(2).toInt)
+							}
+									
+							lines(cEventLine(0)).fwdIP = cEventLine(1).toInt + lines(cEventLine(0)).fwdIP
+							lines(cEventLine(0)).revIP = cEventLine(2).toInt + lines(cEventLine(0)).revIP
+							lines(cEventLine(0)).fwdSR = cEventLine(3).toInt + lines(cEventLine(0)).fwdSR 
+							lines(cEventLine(0)).revSR = cEventLine(4).toInt + lines(cEventLine(0)).revSR
+							lines(cEventLine(0)).allBreaks = addBreaksInfo(lines(cEventLine(0)).allBreaks,cEventLine(5))
+							lines(cEventLine(0)).difs = cEventLine(6).toInt :: lines(cEventLine(0)).difs
+							lines(cEventLine(0)).addRMInfo(cEventLine(7).split(":").map(_.toInt))
+							lines(cEventLine(0)).addEventInfo(cEventLine(8).split(":").map(_.split(",")))
+							lines(cEventLine(0)).addGeno(fID,cEventLine(9))
+							lines(cEventLine(0)).windowDepth = cEventLine(10).toInt :: lines(cEventLine(0)).windowDepth
+							lines(cEventLine(0)).other = cEventLine(11).toInt :: lines(cEventLine(0)).other
+							lines(cEventLine(0)).readsRatio = cEventLine(12).toDouble :: lines(cEventLine(0)).readsRatio
+							lines(cEventLine(0)).etype = cEventLine(13) :: lines(cEventLine(0)).etype
+							lines(cEventLine(0)).addBreaks(cEventLine(14))
+							lines(cEventLine(0)).addSize(cEventLine(15))
+							lines(cEventLine(0)).carriers = fID :: lines(cEventLine(0)).carriers	
+
+						}
+						*/
 					}
-						
-				lines(cEventLine(0)).fwdIP = cEventLine(1).toInt + lines(cEventLine(0)).fwdIP
-				lines(cEventLine(0)).revIP = cEventLine(2).toInt + lines(cEventLine(0)).revIP
-				lines(cEventLine(0)).fwdSR = cEventLine(3).toInt + lines(cEventLine(0)).fwdSR 
-				lines(cEventLine(0)).revSR = cEventLine(4).toInt + lines(cEventLine(0)).revSR
-				lines(cEventLine(0)).allBreaks = addBreaksInfo(lines(cEventLine(0)).allBreaks,cEventLine(5))
-				lines(cEventLine(0)).difs = cEventLine(6).toInt :: lines(cEventLine(0)).difs
-				lines(cEventLine(0)).addRMInfo(cEventLine(7).split(":").map(_.toInt))
-				lines(cEventLine(0)).addEventInfo(cEventLine(8).split(":").map(_.split(",")))
-				lines(cEventLine(0)).addGeno(fID,cEventLine(9))
-				lines(cEventLine(0)).windowDepth = cEventLine(10).toInt :: lines(cEventLine(0)).windowDepth
-				lines(cEventLine(0)).other = cEventLine(11).toInt :: lines(cEventLine(0)).other
-				lines(cEventLine(0)).readsRatio = cEventLine(12).toDouble :: lines(cEventLine(0)).readsRatio
-				lines(cEventLine(0)).etype = cEventLine(13) :: lines(cEventLine(0)).etype
-				lines(cEventLine(0)).addBreaks(cEventLine(14))
-				lines(cEventLine(0)).addSize(cEventLine(15))
-				lines(cEventLine(0)).carriers = fID :: lines(cEventLine(0)).carriers
+
 
 			}
 		}//Load data
@@ -294,13 +360,22 @@ object survey {
 		}
 		var gtErrors = 0
 
-		println(s"Pos\t5'_IPP\t3'_IPP\t5'_SR\t3'_SR\tCarriers\tCarrier%\tR+M+\tR+M-\tR-M+\tR-M-\tDenovo\tL1_Size\tTrio\tMendelian\tBest_Breakpoints\tBest_Event\tEvent_support\tGap?\tGenes")
+		println(s"Pos\t5'_IPP\t3'_IPP\t5'_SR\t3'_SR\tCarriers\tCarrier%\tR+M+\tR+M-\tR-M+\tR-M-\tDenovo\tL1_Size\tTrio\tMendelian\tBest_Breakpoints\tBest_Event\tEvent_support\tGap?\tGenes\t")
 		for (elm <- lines.values){
 			val bestBreaks = if (elm.allBreaks.size >= 2) elm.allBreaks.toList.sortBy(-_._2).slice(0,2).sortBy(_._1) else if (elm.allBreaks.size == 1)  elm.allBreaks.toList ::: List((0,0)) else List((0,0),(0,0))
 			//Check if near Gap
 			var cleanOr = if ( ((elm.rPmP + elm.rNmN + 1)/(elm.rPmN + elm.rNmP + 1)) > 3 || ((elm.rPmN + elm.rNmP + 1)/(elm.rPmP + elm.rNmN + 1)) > 3 ) true else false
 			//if (!isGAP(bestBreaks(0)._1,gapsChrom(elm.chrom))._1 && (elm.fwdSR + elm.revSR) >= 2 && (elm.fwdIP + elm.revIP) >= 4 && scala.math.abs(bestBreaks(1)._1 - bestBreaks(0)._1) < 50 && cleanOr) {
-			if (!isGAP(bestBreaks(0)._1,gapsChrom(elm.chrom))._1 && (elm.fwdSR + elm.revSR) >= 4 && (elm.fwdIP + elm.revIP) >= 10 && cleanOr) {
+
+				/* Total reads Sig */
+				var depth = 0
+				for (i <- elm.carriers) depth += curDepth(i).toInt
+				val totalSeq = 12 * depth
+				val splitP = bootStrap(totalSeq,elm.fwdSR + elm.revSR,expReads,expSR)
+				val ippP = bootStrap(totalSeq,elm.fwdIP + elm.revIP,expReads,expIPP)
+				System.err.println(s"${elm.chrom}:${elm.start}-${elm.end} IPP ${elm.fwdIP},${elm.revIP} P=${ippP}\tSR ${elm.fwdSR},${elm.revSR} P=${splitP}\tRatioIP/SR ${((elm.fwdIP + elm.revIP)/(elm.fwdSR + elm.revSR + 1))}")
+			//if (!isGAP(bestBreaks(0)._1,gapsChrom(elm.chrom))._1 && (elm.fwdSR + elm.revSR) >= 4 && (elm.fwdIP + elm.revIP) >= 10 && cleanOr && ((elm.fwdIP + elm.revIP)/(elm.fwdSR + elm.revSR)) >= 1) {
+				if (!isGAP(bestBreaks(0)._1,gapsChrom(elm.chrom))._1 && ippP <= 0.05 && splitP <= 0.05 && cleanOr && ((elm.fwdIP + elm.revIP)/(elm.fwdSR + elm.revSR + 1.0)) >= 1.0) {
 				var denovos : List[String] = Nil
 				var denoNum, mendNum = 0
 				var trio = ""
